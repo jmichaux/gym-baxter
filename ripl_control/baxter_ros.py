@@ -105,6 +105,21 @@ class BaxterRos(object):
         pass
 
     def get_joint_states(self):
+        if self.control = Control.POSITION:
+            return self.get_joint_angles()
+        elif self.control = Control.VELOCITY:
+            return self.get_joint_velocities()
+        else:
+            return self.get_joint_torques()
+        pass
+
+    def get_joint_angles(self):
+        pass
+
+    def get_joint_velocities(self):
+        pass
+
+    def get_joint_torques(self):
         pass
 
     def get_ee_states(self):
