@@ -1,6 +1,7 @@
 from __future__ import division
 from enum import IntEnum
 import numpy as np
+import time
 
 import rospy
 import baxter_interface
@@ -11,11 +12,19 @@ class Control(IntEnum):
     VELOCITY = 1
     TORQUE = 2
 
+class State(IntEnum):
+    POSITION = 0
+    VELOCITY = 1
+    TORQUE = 2
+
 class BaxterRos(object):
-    def __init__(self, arms, control=None, rate=100.0, missed_cmds=20000.0):
+    def __init__(self, arms, control=None, state=None, rate=100.0, missed_cmds=20000.0):
         # create arm(s)
         self._arms = arms
         self.create_arms()
+
+        # create joint dictionary
+        # self.create_joint_dict()
 
         # specify joint control mode
         self.set_control(control)
@@ -47,7 +56,7 @@ class BaxterRos(object):
         return
 
     def reset(self):
-        # enable
+        # enable robot
         self.enable()
         # move arms to Neutral position
         if self._arms == "both":
@@ -74,26 +83,30 @@ class BaxterRos(object):
             self.right_arm = Limb("right")
             self.right_arm.gripper = Gripper("right")
             self.num_arms = 2
-        # elif arms == "right":
-        #     self.right_arm = Limb("right")
-        #     self.right_arm.gripper = Gripper("right")
-        #     self.num_arms = 1
-        # else:
-        #     self.left_arm = Limb("left")
-        #     self.left_arm.gripper = Gripper("left")
-        #     self.num_arms = 1
+        elif self._arms == "left":
+            # create left arm only
+            self.arm = self.left_arm = Limb("left")
+            self.arm.gripper = self.left_arm.gripper = Gripper("left")
+            self.num_arms = 1
         else:
-            self.arm = Limb(self._arms)
-            self.arm.gripper = Gripper(self._arms)
+            # create right arm only
+            self.arm = self.right_arm = Limb("right")
+            self.arm.gripper = self.right_arm.gripper = Gripper("right")
             self.num_arms = 1
         return
 
     def calibrate_grippers(self):
+        """
+        (Blocking)
+        """
         if self._arms == "both":
-            self.left_arm.gripper.calibrate()
-            self.right_arm.gripper.calibrate()
+            if not self.left_arm.gripper.calibrated():
+                self.left_arm.gripper.calibrate()
+            if not self.right_arm.gripper.calibrated():
+                self.right_arm.gripper.calibrate()
         else:
-            self.arm.gripper.calibrate()
+            if not self.arm.gripper.calibrated():
+                self.arm.gripper.calibrate()
         return
 
     def enable(self):
@@ -105,9 +118,9 @@ class BaxterRos(object):
         pass
 
     def get_joint_states(self):
-        if self.control = Control.POSITION:
+        if self.state == State.POSITION:
             return self.get_joint_angles()
-        elif self.control = Control.VELOCITY:
+        elif self.state == State.VELOCITY:
             return self.get_joint_velocities()
         else:
             return self.get_joint_torques()
@@ -125,17 +138,54 @@ class BaxterRos(object):
     def get_ee_states(self):
         pass
 
+    def create_joint_dict(self):
+        if self._arms == "both":
+            joints = self.left_arm.joint_names() + self.right_arm.joint_names()
+        else:
+            joints = self.arm.joint_names()
+        inds = range(len(joints))
+        self.joint_dict = dict(zip(inds, joints))
+        return
 
-class BaxterPyBullet(object):
-    def __init__(self, control=None, limbs=None):
-        pass
-
-    def reset(self):
-        pass
-
-    def get_joint_angles(self):
-        pass
 
 if __name__ == "__main__":
     rospy.init_node("interface_test")
     baxter = BaxterRos("both")
+
+    r_joints_1 = {'right_e0': 0,
+              'right_e1': 0,
+              'right_s0': 0,
+              'right_s1': 0,
+              'right_w0': 0,
+              'right_w1': 0,
+              'right_w2': 0}
+
+    l_joints_1 = {'left_e0': 0,
+              'left_e1': 0,
+              'left_s0': 0,
+              'left_s1': 0,
+              'left_w0': 0,
+              'left_w1': 0,
+              'left_w2': 0}
+
+    r_joints_2 = {'right_e0': -0.0011504855909140602,
+                'right_e1': 0.7620049563820793,
+                'right_s0': -0.0011504855909140602,
+                'right_s1': -0.540344732532637,
+                'right_w0': -0.0011504855909140602,
+                'right_w1': 1.2448254093690132,
+                'right_w2': -0.0019174759848567672}
+
+    l_joints_2 = {'left_e0': -0.0019174759848567672,
+                 'left_e1': 0.7531845668517382,
+                 'left_s0': 0.0007669903939427069,
+                 'left_s1': -0.54686415088115,
+                 'left_w0': -0.0015339807878854137,
+                 'left_w1': 1.2563302652781538,
+                 'left_w2': 0.0015339807878854137}
+
+
+
+    # baxter.right_arm.move_to_joint_positions(r_joints_1)
+    # arms.move_to_joint_positions(r_joints_1)
+    # baxter.left_arm.set_joint_positions(l_joints_1)
