@@ -506,7 +506,8 @@
     </inertial>
   </link>
   <joint name="right_torso_arm_mount" type="fixed">
-    <origin rpy="0 0 -0.7854" xyz="0.024645 -0.219645 0.118588"/>
+    <!-- <origin rpy="0 0 -0.7854" xyz="0.024645 -0.219645 0.118588"/> -->
+     <origin rpy="0.000354590910292 0.00137984354452 -0.780560741676" xyz="0.0248817669183 -0.220060922512 0.108693545459"/>
     <parent link="torso"/>
     <child link="right_arm_mount"/>
   </joint>
@@ -874,7 +875,8 @@
     </inertial>
   </link>
   <joint name="left_torso_arm_mount" type="fixed">
-    <origin rpy="0 0 0.7854" xyz="0.024645 0.219645 0.118588"/>
+    <origin rpy="-0.0074420066736 -0.00129546242287 0.78310045671" xyz="0.0250508909425 0.219392814533 0.107748812049"/>
+    <!-- <origin rpy="0 0 0.7854" xyz="0.024645 0.219645 0.118588"/> -->
     <parent link="torso"/>
     <child link="left_arm_mount"/>
   </joint>
@@ -1403,4 +1405,3 @@
     <implicitSpringDamper>1</implicitSpringDamper>
   </gazebo>
 </robot>
-
