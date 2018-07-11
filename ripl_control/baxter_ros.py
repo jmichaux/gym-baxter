@@ -298,8 +298,10 @@ class BaxterRos(object):
             self.tuck_idle_arm()
 
     def tuck_idle_arm(self):
-        tuck = {'left':  [-1.0, -2.07,  3.0, 2.55,  0.0, 0.01,  0.0],
-                'right':  [1.0, -2.07, -3.0, 2.55, -0.0, 0.01,  0.0]}
+        # tuck = {'left':  [-1.0, -2.07,  3.0, 2.55,  0.0, 0.01,  0.0],
+        #         'right':  [1.0, -2.07, -3.0, 2.55, -0.0, 0.01,  0.0]}
+        tuck = {'left':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0],
+                'right':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0]}
         angles = tuck[self._idle_arm.name]
         positions = dict(zip(self._idle_arm.joint_names(), angles))
         self._idle_arm.move_to_joint_positions(positions)
