@@ -37,11 +37,12 @@ class BaxterRos(object):
         # specify joint control mode
         self.set_control(control)
 
-        # set joint command timeout
+        # set joint command timeout and control rate
         self.rate = rate
         self.freq = 1 / rate
         self.missed_cmds = missed_cmds
         self.set_command_time_out()
+        self.control_rate = rospy.Rate(self.rate)
 
         # reset starting state of robot
         self.reset()
@@ -245,6 +246,9 @@ class BaxterRos(object):
             'right_w2' : {'min': -3.059, 'max': 3.059 }}
         return joint_ranges
 
+    def choose_random_action():
+        pass
+
     def apply_action(self, action):
         """
         Apply a joint action
@@ -264,6 +268,7 @@ class BaxterRos(object):
             action_dict = self.create_action_dict(action)
             # blocking
             self.arm.move_to_joint_positions(action_dict)
+        self.update_state()
 
     def parse_action_dict(self, action_dict):
         l_dict = {joint_name: action_dict[joint_name] for joint_name in self.left_arm.joint_names()}
