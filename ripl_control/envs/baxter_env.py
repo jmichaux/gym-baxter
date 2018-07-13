@@ -28,7 +28,7 @@ class BaxterReacherEnv(gym.Env):
         self.timesteps = timesteps
 
         # set threshold
-        self.threshold = 1e-3
+        self.threshold = 1e-2
 
     def step(self, action):
         # take action
@@ -39,12 +39,12 @@ class BaxterReacherEnv(gym.Env):
         state = self.baxter.get_state()
         # determine if done
         dist = np.linalg.norm(np.array(self.goal) - np.array(state))
-        if self.t == self.timesteps - 1 or dist < self.threshold:
-            reward = 1
+        near_goal = dist < self.threshold
+        if self.t == self.timesteps - 1 or near_goal:
             done = True
         else:
-            reward = 0
             done = False
+        reward = 1 if near_goal else 0
         self.t += 1
         return state, reward, done, {}
 
