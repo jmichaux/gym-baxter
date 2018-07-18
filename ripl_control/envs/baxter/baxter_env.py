@@ -10,6 +10,7 @@ from gym.spaces import Box
 from gym.utils import seeding
 
 from baxter_ros import *
+from baxter import *
 
 class BaxterReacherEnv(gym.Env):
     """Simple implementation of a Baxter Reacher Env that is meant to work
@@ -18,15 +19,21 @@ class BaxterReacherEnv(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, timesteps=200):
-        # initialize ros node
-        rospy.init_node("reacher_env")
+    def __init__(self, timesteps=200, sim=False, arms=None):
+        self.arms=arms
+        self.sim = sim
+        if self.sim:
+            # connect to bullet physics server
+            self._p = p
+            p.connect(p.Direct)
+            #TODO: deal with rendering
+        else:
+            # initialize ros node
+            rospy.init_node("reacher_env")
         # reset environment
         self.reset()
         # set timesetps
-        # Not actual timesteps, more like decision steps
         self.timesteps = timesteps
-
         # set threshold
         self.threshold = 1e-2
 
@@ -50,7 +57,10 @@ class BaxterReacherEnv(gym.Env):
 
     def reset(self):
         # initialilze baxter
-        self.baxter = BaxterRos("right")
+        if self.sim:
+            self.baxter = BaxterPybullet()
+        else:
+            self.baxter = BaxterRos("right")
         # choose reaching target
         self.goal = self._sample_goal()
         print("Goal: ", self.goal)
@@ -58,7 +68,12 @@ class BaxterReacherEnv(gym.Env):
         self.t = 0
         return
 
+    def seed(self):
+        return
+
     def render(self, mode='human', close=False):
+        if self.sim:
+            pass
         pass
 
     @property
@@ -77,31 +92,31 @@ class BaxterReacherEnv(gym.Env):
         z = np.random.uniform(-.16, .32, 1)[0]
         return [x, y, z]
 
-# class BaxterEnv(gym.Env):
-#
-#
-#     def __init__(self, ):
-#         # initialize ros node
-#         # rospy.init_node("reacher_env")
-#
-#         # self._isDiscrete = isDiscrete
-#         # self._timestep = 1./240.
-#         # self.reset()
-#
-#     def step(self, actions):
-#         raise NotImplementedError
-#
-#     def reset(self):
-#         # initialilze baxter
-#         raise NotImplementedError
-#
-#     def render(self, mode='human', close=False):
-#         pass
-#
-#     @property
-#     def action_space(self):
-#         raise NotImplementedError
-#
-#     @property
-#     def observation_space(self):
-#         raise NotImplementedError
+class BaxterEnv(gym.Env):
+
+
+    def __init__(self, ):
+        # initialize ros node
+        # rospy.init_node("reacher_env")
+
+        # self._isDiscrete = isDiscrete
+        # self._timestep = 1./240.
+        # self.reset()
+
+    def step(self, actions):
+        raise NotImplementedError
+
+    def reset(self):
+        # initialilze baxter
+        raise NotImplementedError
+
+    def render(self, mode='human', close=False):
+        pass
+
+    @property
+    def action_space(self):
+        raise NotImplementedError
+
+    @property
+    def observation_space(self):
+        raise NotImplementedError

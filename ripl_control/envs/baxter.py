@@ -8,10 +8,15 @@ import baxter_interface
 from baxter_interface import CHECK_VERSION, Limb, Gripper
 from utils import transforms
 
+import pybullet as p
+
 class CONTROL(IntEnum):
-    POSITION = 0
-    VELOCITY = 1
-    TORQUE = 2
+    # 0
+    VELOCITY = p.VELOCITY_CONTROL
+    # 1
+    TORQUE = p.TORQUE_CONTROL
+    # 2
+    POSITION = p.POSITION_CONTROL
 
 class STATE(IntEnum):
     EE_POSITION = 0
@@ -20,8 +25,21 @@ class STATE(IntEnum):
     JOINT_VELOCITIES = 3
     JOINT_TORQUES = 4
 
-class BaxterRos(object):
-    def __init__(self, arms="both", control=None, state=None, rate=100.0, missed_cmds=20000.0):
+class Baxter(object):
+    def __init__(self, sim=False,
+                 arms="both",
+                 timestep=1.0,
+                 control=None,
+                 state=None,
+                 rate=100.0,
+                 missed_cmds=20000.0):
+        
+        # set real or sim
+        self.sim = sim
+
+        # set time step
+        self.timestep = timestep
+
         # create arm(s)
         self._arms = arms
         self.create_arms()
@@ -30,7 +48,6 @@ class BaxterRos(object):
         self.create_joint_dicts()
 
         # specify state
-        # TODO: rewrite to handle multiple state types
         self.current_state = None
         self._robot_state = state
 
@@ -49,7 +66,7 @@ class BaxterRos(object):
 
     def set_control(self, control):
         """
-        Sets the control type for Baxter
+        Sets the control type for Baxter in simulation or the real robot
         """
         if control == "position" or control == None:
             self.control = CONTROL.POSITION
@@ -68,19 +85,22 @@ class BaxterRos(object):
         return
 
     def reset(self):
-        # enable robot
-        self.enable()
-        # move arms to ready positions
-        self.set_ready_position()
-        # if self._arms == "both":
-        #     self.left_arm.move_to_neutral()
-        #     self.right_arm.move_to_neutral()
-        # else:
-        #     self.arm.move_to_neutral()
-        # calibrate grippers
-        self.calibrate_grippers()
-        # update state
-        self.update_state()
+        if self.sim:
+            pass
+        else:
+            # enable robot
+            self.enable()
+            # move arms to ready positions
+            self.set_ready_position()
+            # if self._arms == "both":
+            #     self.left_arm.move_to_neutral()
+            #     self.right_arm.move_to_neutral()
+            # else:
+            #     self.arm.move_to_neutral()
+            # calibrate grippers
+            self.calibrate_grippers()
+            # update state
+            self.update_state()
         return
 
     def create_arms(self):
@@ -88,26 +108,29 @@ class BaxterRos(object):
         Create arm interface objects from Baxter. An arm consists
         of a Limb and its gripper.
         """
-        if self._arms == "both":
-            # create left arm
-            self.left_arm = Limb("left")
-            self.left_arm.gripper = Gripper("left")
-            # create right arm
-            self.right_arm = Limb("right")
-            self.right_arm.gripper = Gripper("right")
-            self.num_arms = 2
-        elif self._arms == "left":
-            # create left arm only
-            self.arm = self.left_arm = Limb("left")
-            self.arm.gripper = self.left_arm.gripper = Gripper("left")
-            self._idle_arm = Limb("right")
-            self.num_arms = 1
+        if self.sim:
+            pass
         else:
-            # create right arm only
-            self.arm = self.right_arm = Limb("right")
-            self.arm.gripper = self.right_arm.gripper = Gripper("right")
-            self._idle_arm = Limb("left")
-            self.num_arms = 1
+            if self._arms == "both":
+                # create left arm
+                self.left_arm = Limb("left")
+                self.left_arm.gripper = Gripper("left")
+                # create right arm
+                self.right_arm = Limb("right")
+                self.right_arm.gripper = Gripper("right")
+                self.num_arms = 2
+            elif self._arms == "left":
+                # create left arm only
+                self.arm = self.left_arm = Limb("left")
+                self.arm.gripper = self.left_arm.gripper = Gripper("left")
+                self._idle_arm = Limb("right")
+                self.num_arms = 1
+            else:
+                # create right arm only
+                self.arm = self.right_arm = Limb("right")
+                self.arm.gripper = self.right_arm.gripper = Gripper("right")
+                self._idle_arm = Limb("left")
+                self.num_arms = 1
         return
 
     def calibrate_grippers(self):
@@ -174,10 +197,13 @@ class BaxterRos(object):
         [X, Y, Z] or
         [X_left, Y_left, Z_left, X_right, Y_right, Z_right]
         """
-        if self._arms == "both":
-            return self._left_ee_position() + self._right_ee_position()
+        if self.sim:
+            pass
         else:
-            return list(self.arm.endpoint_pose()['position'])
+            if self._arms == "both":
+                return self._left_ee_position() + self._right_ee_position()
+            else:
+                return list(self.arm.endpoint_pose()['position'])
 
     def get_ee_orientation(self):
         """
@@ -192,13 +218,19 @@ class BaxterRos(object):
             return list(self.arm.endpoint_pose()['orientation'])
 
     def _left_ee_position(self):
-        return list(self.left_arm.endpoint_pose()['position'])
+        if self.sim:
+            pass
+        else:
+            return list(self.left_arm.endpoint_pose()['position'])
 
     def _right_ee_position(self):
         return list(self.right_arm.endpoint_pose()['position'])
 
     def _left_ee_orientation(self):
-        return list(self.left_arm.endpoint_pose()['orientation'])
+        if self.sim:
+            pass
+        else:
+            return list(self.left_arm.endpoint_pose()['orientation'])
 
     def _right_ee_orientation(self):
         return list(self.right_arm.endpoint_pose()['orientation'])
@@ -229,21 +261,24 @@ class BaxterRos(object):
         return joint_dict
 
     def create_joint_range_dict(self):
-        joint_ranges = {
-            'left_s0' : {'min': -1.7016, 'max': 1.7016},
-            'left_s1' : {'min': -2.147, 'max': 2.147},
-            'left_e0' : {'min': -3.0541, 'max': 3.0541 },
-            'left_e1' : {'min': -0.05, 'max': 2.618},
-            'left_w0' : {'min': -3.059, 'max': 3.059 },
-            'left_w1' : {'min': -1.5707, 'max': 2.094},
-            'left_w2' : {'min': -3.059, 'max': 3.059},
-            'right_s0' : {'min': -1.7016, 'max': 1.7016},
-            'right_s1' : {'min': -2.147, 'max': 2.147},
-            'right_e0' : {'min': -3.0541, 'max': 3.0541},
-            'right_e1' : {'min': -0.05, 'max': 2.618},
-            'right_w0' : {'min': -3.059, 'max': 3.059 },
-            'right_w1' : {'min': -1.5707, 'max': 2.094},
-            'right_w2' : {'min': -3.059, 'max': 3.059 }}
+        if self.sim:
+            pass
+        else:
+            joint_ranges = {
+                'left_s0' : {'min': -1.7016, 'max': 1.7016},
+                'left_s1' : {'min': -2.147, 'max': 2.147},
+                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
+                'left_e1' : {'min': -0.05, 'max': 2.618},
+                'left_w0' : {'min': -3.059, 'max': 3.059 },
+                'left_w1' : {'min': -1.5707, 'max': 2.094},
+                'left_w2' : {'min': -3.059, 'max': 3.059},
+                'right_s0' : {'min': -1.7016, 'max': 1.7016},
+                'right_s1' : {'min': -2.147, 'max': 2.147},
+                'right_e0' : {'min': -3.0541, 'max': 3.0541},
+                'right_e1' : {'min': -0.05, 'max': 2.618},
+                'right_w0' : {'min': -3.059, 'max': 3.059 },
+                'right_w1' : {'min': -1.5707, 'max': 2.094},
+                'right_w2' : {'min': -3.059, 'max': 3.059 }}
         return joint_ranges
 
     def choose_random_action():
@@ -269,6 +304,27 @@ class BaxterRos(object):
             # blocking
             self.arm.move_to_joint_positions(action_dict)
         self.update_state()
+
+    def _apply_postion_control(self, action):
+        if self.sim:
+            pass
+        else:
+            pass
+        return
+
+    def _apply_velocity_control(self, action):
+        if self.sim:
+            pass
+        else:
+            pass
+        return
+
+    def _apply_torque_control(self, action):
+        if self.sim:
+            pass
+        else:
+            pass
+        return
 
     def parse_action_dict(self, action_dict):
         l_dict = {joint_name: action_dict[joint_name] for joint_name in self.left_arm.joint_names()}
@@ -303,13 +359,16 @@ class BaxterRos(object):
             self.tuck_idle_arm()
 
     def tuck_idle_arm(self):
-        # tuck = {'left':  [-1.0, -2.07,  3.0, 2.55,  0.0, 0.01,  0.0],
-        #         'right':  [1.0, -2.07, -3.0, 2.55, -0.0, 0.01,  0.0]}
-        tuck = {'left':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0],
-                'right':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0]}
-        angles = tuck[self._idle_arm.name]
-        positions = dict(zip(self._idle_arm.joint_names(), angles))
-        self._idle_arm.move_to_joint_positions(positions)
+        if self.sim:
+            pass
+        else:
+            # tuck = {'left':  [-1.0, -2.07,  3.0, 2.55,  0.0, 0.01,  0.0],
+            #         'right':  [1.0, -2.07, -3.0, 2.55, -0.0, 0.01,  0.0]}
+            tuck = {'left':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0],
+                    'right':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0]}
+            angles = tuck[self._idle_arm.name]
+            positions = dict(zip(self._idle_arm.joint_names(), angles))
+            self._idle_arm.move_to_joint_positions(positions)
 
     def untuck_idle_arm(self):
         # untuck = {'left':  [-0.08, -1.0, -1.19, 1.94,  0.67, 1.03, -0.50],
@@ -332,6 +391,7 @@ class BaxterRos(object):
 
     def set_joint_torques(self, joint_torques):
         pass
+
 
 if __name__ == "__main__":
     rospy.init_node("interface_test")
