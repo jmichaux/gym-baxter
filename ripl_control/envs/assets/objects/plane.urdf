@@ -1,0 +1,25 @@
+<?xml version="0.0" ?>
+<robot name="cube.urdf">
+  <link name="planeLink">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="plane.obj" scale="2 2 2"/>
+      </geometry>
+       <material name="green">
+        <color rgba="0.44 0.85 0.56 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+    <box size="20 20 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>

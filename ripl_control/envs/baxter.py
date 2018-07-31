@@ -33,7 +33,7 @@ class Baxter(object):
                  state=None,
                  rate=100.0,
                  missed_cmds=20000.0):
-        
+
         # set real or sim
         self.sim = sim
 
@@ -291,19 +291,22 @@ class Baxter(object):
             action - list or array of joint angles
         Blocking when moving the arm
         """
-        assert(len(action) == len(self.joint_dict))
-        if self._arms == "both":
-            action_dict = self.create_action_dict(action)
-            l_action_dict, r_action_dict = self.parse_action_dict(action_dict)
-            # not blocking
-            self.left_arm.set_joint_positions(l_action_dict)
-            # blocking
-            self.right_arm.move_to_joint_positions(r_action_dict)
+        if self.sim:
+            pass
         else:
-            action_dict = self.create_action_dict(action)
-            # blocking
-            self.arm.move_to_joint_positions(action_dict)
-        self.update_state()
+            assert(len(action) == len(self.joint_dict))
+            if self._arms == "both":
+                action_dict = self.create_action_dict(action)
+                l_action_dict, r_action_dict = self.parse_action_dict(action_dict)
+                # not blocking
+                self.left_arm.set_joint_positions(l_action_dict)
+                # blocking
+                self.right_arm.move_to_joint_positions(r_action_dict)
+            else:
+                action_dict = self.create_action_dict(action)
+                # blocking
+                self.arm.move_to_joint_positions(action_dict)
+            self.update_state()
 
     def _apply_postion_control(self, action):
         if self.sim:
