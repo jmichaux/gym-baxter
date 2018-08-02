@@ -1,12 +1,17 @@
 from __future__ import division
 from enum import IntEnum
-import numpy as np
+import os
 import time
+
+import numpy as np
 
 import rospy
 import baxter_interface
 from baxter_interface import CHECK_VERSION, Limb, Gripper
-from utils import transforms
+from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
+from std_msgs.msg import Header
+from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
+# from utils import transforms
 
 import pybullet as p
 
@@ -24,53 +29,66 @@ class STATE(IntEnum):
     JOINT_ANGLES = 2
     JOINT_VELOCITIES = 3
     JOINT_TORQUES = 4
+    PIXELS = 5
 
 class Baxter(object):
-    def __init__(self, sim=False,
-                 arms="both",
-                 timestep=1.0,
-                 control=None,
+    def __init__(self,
+                 sim=False,
+                 arms="right",
+                 time_step=1.0,
+                 control="position",
                  state=None,
                  rate=100.0,
                  missed_cmds=20000.0):
 
-        # set real or sim
+        self.set_control(control)
         self.sim = sim
 
-        # set time step
-        self.timestep = timestep
+        if self.sim:
+            print("hello")
+            self.baxter_path =  os.path.expanduser("~") + baxter_path
+            self.time_step = time_step
+            # values taken from http://sdk.rethinkrobotics.com/wiki/Hardware_Specifications#Peak_Torque
+            self.max_velocity = 0.0
+            self.max_force = 35.0
+            self.max_gripper_force = 35.0
+            self.left_finger_force = 0
+            self.right_finger_force = 0
+            self.finger_tip_force = 0.
+        else:
+            # set time step
+            self.time_step = time_step
 
-        # create arm(s)
-        self._arms = arms
-        self.create_arms()
+            # create arm(s)
+            self._arms = arms
+            self.create_arms()
 
-        # create joint dictionaries
-        self.create_joint_dicts()
+            # create joint dictionaries
+            self.create_joint_dicts()
 
-        # specify state
-        self.current_state = None
-        self._robot_state = state
+            # specify state
+            self.current_state = None
+            self._robot_state = state
 
-        # specify joint control mode
-        self.set_control(control)
+            # set joint command timeout and control rate
+            self.rate = rate
+            self.freq = 1 / rate
+            self.missed_cmds = missed_cmds
+            self.set_command_time_out()
+            self.control_rate = rospy.Rate(self.rate)
 
-        # set joint command timeout and control rate
-        self.rate = rate
-        self.freq = 1 / rate
-        self.missed_cmds = missed_cmds
-        self.set_command_time_out()
-        self.control_rate = rospy.Rate(self.rate)
-
-        # reset starting state of robot
-        self.reset()
+            # reset starting state of robot
+            self.reset()
 
     def set_control(self, control):
         """
         Sets the control type for Baxter in simulation or the real robot
+        Args: control - string or int
+
         """
-        if control == "position" or control == None:
+        if control == "position" or control == CONTROL.POSITION or control == None:
             self.control = CONTROL.POSITION
-        elif control == "velocity":
+        elif control == "velocity" or control == CONTROL.VELOCITY:
             self.control = CONTROL.VELOCITY
         else:
             self.control = CONTROL.TORQUE
@@ -86,22 +104,78 @@ class Baxter(object):
 
     def reset(self):
         if self.sim:
-            pass
+            self._reset_sim()
         else:
-            # enable robot
-            self.enable()
-            # move arms to ready positions
-            self.set_ready_position()
-            # if self._arms == "both":
-            #     self.left_arm.move_to_neutral()
-            #     self.right_arm.move_to_neutral()
-            # else:
-            #     self.arm.move_to_neutral()
-            # calibrate grippers
-            self.calibrate_grippers()
-            # update state
-            self.update_state()
-        return
+            self._reset_real()
+
+    def _reset_real(self):
+        # enable robot
+        self.enable()
+        # move arms to ready positions
+        self.set_ready_position()
+        # calibrate gripper
+        self.calibrate_grippers()
+        # update state
+        self.update_state()
+
+    def _reset_sim(self):
+        '''Load Baxter, table, and tray URDF'''
+        objects = [p.loadURDF(baxter_path, [0.00000,-0.000000, 1.00000,], useFixedBase=True)]
+        objects = [p.loadURDF("table/table.urdf", 1.000000,-0.200000,0.000000,0.000000,0.000000,0.707107,0.707107)]
+        self.baxter_id = objects[0]
+        self.num_joints = p.getNumJoints(self.baxter_id)
+
+        # Initial pose for left and right arms
+        self.initial_pose = [
+          # right arm
+          [12, 0.005309502001432469],
+          [13, -0.5409516930403337],
+          [14, 0.004660885344502314],
+          [15, 0.7525584394255346],
+          [16, 0.0020039031898094538],
+          [18, 1.2527114375915975],
+          [19, -0.0049519009839707265],
+          # right gripper
+          [27, -0.005206632462850682],
+          [29, -0.005206632462850682],
+          # left arm
+          [34, 0.006443994385763649],
+          [35, -0.5429260025686881],
+          [36, 0.0032076910770917574],
+          [37, 0.7532434642513719],
+          [38, -0.00378481197484175],
+          [40, 1.2540471030663223],
+          [41, -0.005206632462850682],
+          # left gripper
+          [49, -0.005206632462850682],
+          [51, -0.005206632462850682]]
+
+        # set position of arms
+        for joint_index, joint_val in self.initial_pose:
+            p.resetJointState(self.baxter_id, joint_index, joint_val)
+            p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
+
+        # Get pose of end effectors
+        self.left_ee_pos, self.left_ee_angle = self.get_ee_pose(end_effector="left")
+        self.right_ee_pos, self.right_ee_angle = self.get_ee_pose(end_effector="right")
+
+        self.motor_names = []
+        self.motor_indices = []
+
+        for i in range(self.num_joints):
+          joint_info = p.getJointInfo(self.baxter_id, i)
+          q_ind = joint_info[3]
+          if q_ind > -1:
+            self.motor_names.append(str(joint_info[1]))
+            self.motor_indices.append(i)
+
+        # lower limits, upper limits, joint ranges,
+        # and rest poses for null space
+        self.ll, self.ul, self.jr, self.rp = self.get_joint_ranges()
+
+        # joint damping coefficients
+        self.jd = None
+
 
     def create_arms(self):
         """
@@ -113,6 +187,7 @@ class Baxter(object):
         else:
             if self._arms == "both":
                 # create left arm
+                print("Creating both arms...")
                 self.left_arm = Limb("left")
                 self.left_arm.gripper = Gripper("left")
                 # create right arm
@@ -121,12 +196,14 @@ class Baxter(object):
                 self.num_arms = 2
             elif self._arms == "left":
                 # create left arm only
+                print("Creating left arm...")
                 self.arm = self.left_arm = Limb("left")
                 self.arm.gripper = self.left_arm.gripper = Gripper("left")
                 self._idle_arm = Limb("right")
                 self.num_arms = 1
-            else:
+            elif self._arms == "right":
                 # create right arm only
+                print("Creating right arm...")
                 self.arm = self.right_arm = Limb("right")
                 self.arm.gripper = self.right_arm.gripper = Gripper("right")
                 self._idle_arm = Limb("left")
@@ -170,13 +247,15 @@ class Baxter(object):
             return self.get_joint_velocities()
         else:
             return self.get_joint_torques()
-        pass
 
     def update_state(self):
         """
         Update the current state of the robot
         """
-        self.current_state = self.get_state()
+        if self.sim:
+            pass
+        else:
+            self.current_state = self.get_state()
         return
 
     def get_ee_pose(self):
@@ -184,12 +263,15 @@ class Baxter(object):
         Returns a list of
         pose = [X, Y, Z, x, y, z, w]
         """
-        if self._arms == "both":
-            left_pose = self._left_ee_position() + self._left_ee_orientation()
-            right_pose =  self._right_ee_position() + self._right_ee_orientation()
-            return left_pose + right_pose
+        if self.sim:
+            pass
         else:
-            return self.get_ee_position() + self.get_ee_orientation()
+            if self._arms == "both":
+                left_pose = self._left_ee_position() + self._left_ee_orientation()
+                right_pose =  self._right_ee_position() + self._right_ee_orientation()
+                return left_pose + right_pose
+            else:
+                return self.get_ee_position() + self.get_ee_orientation()
 
     def get_ee_position(self):
         """
@@ -211,11 +293,14 @@ class Baxter(object):
         [theta_x, theta_y, theta_z] or
         [the_x_l, theta_y_l, theta_z_l, the_x_r, theta_y_r, theta_z_r]
         """
-        if self._arms == "both":
-            return self._left_ee_orientation() + self._right_ee_orientation()
+        if self.sim:
+            pass
         else:
-            # TODO: transform to Euler angles
-            return list(self.arm.endpoint_pose()['orientation'])
+            if self._arms == "both":
+                return self._left_ee_orientation() + self._right_ee_orientation()
+            else:
+                # TODO: transform to Euler angles
+                return list(self.arm.endpoint_pose()['orientation'])
 
     def _left_ee_position(self):
         if self.sim:
@@ -281,10 +366,22 @@ class Baxter(object):
                 'right_w2' : {'min': -3.059, 'max': 3.059 }}
         return joint_ranges
 
-    def choose_random_action():
-        pass
-
     def apply_action(self, action):
+        """
+        Apply a joint action
+        Inputs:
+            action - list or array of joint angles
+        Blocking when moving the arm
+        """
+        #TODO: assert that actions of right type
+        if self.control == CONTROL.POSITION:
+            self._apply_position_control(action)
+        elif self.control == CONTROL.VELOCITY:
+            self._apply_velocity_control(action)
+        else:
+            self._apply_torque_control(action)
+
+    def _apply_position_control(self, action):
         """
         Apply a joint action
         Inputs:
@@ -296,6 +393,7 @@ class Baxter(object):
         else:
             assert(len(action) == len(self.joint_dict))
             if self._arms == "both":
+                print(True)
                 action_dict = self.create_action_dict(action)
                 l_action_dict, r_action_dict = self.parse_action_dict(action_dict)
                 # not blocking
@@ -307,12 +405,6 @@ class Baxter(object):
                 # blocking
                 self.arm.move_to_joint_positions(action_dict)
             self.update_state()
-
-    def _apply_postion_control(self, action):
-        if self.sim:
-            pass
-        else:
-            pass
         return
 
     def _apply_velocity_control(self, action):
@@ -328,6 +420,9 @@ class Baxter(object):
         else:
             pass
         return
+
+    def clip_action(self):
+        pass
 
     def parse_action_dict(self, action_dict):
         l_dict = {joint_name: action_dict[joint_name] for joint_name in self.left_arm.joint_names()}
@@ -351,15 +446,28 @@ class Baxter(object):
 
     def set_ready_position(self):
         angles = [0.0, -0.55, 0.0, 0.75, 0.0, 1.26, 0.0]
-        if self._arms == "both":
-            l_position = dict(zip(self.left_arm.joint_names(), angles))
-            r_position = dict(zip(self.right_arm.joint_names(), angles))
-            self.left_arm.set_joint_positions(l_position)
-            self.right_arm.move_to_joint_positions(r_position)
+        idle_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        print("Setting ready position")
+        if self.sim:
+            pass
         else:
-            positions = dict(zip(self.arm.joint_names(), angles))
-            self.arm.set_joint_positions(positions)
-            self.tuck_idle_arm()
+            if self._arms == "both":
+                # left arm
+                l_position = dict(zip(self.left_arm.joint_names(), angles))
+                self.left_arm.set_joint_positions(l_position)
+                # right arm
+                r_position = dict(zip(self.right_arm.joint_names(), angles))
+                self.right_arm.move_to_joint_positions(r_position)
+            else:
+                #TODO: figure out why using set_joint_positions doesn't always send a command
+                # active arm
+                arm_position = dict(zip(self.arm.joint_names(), angles))
+                self.arm.move_to_joint_positions(arm_position)
+                # self.arm.set_joint_positions(arm_position)
+                # idle arm
+                idle_position = dict(zip(self._idle_arm.joint_names(), idle_angles))
+                self._idle_arm.move_to_joint_positions(idle_position)
+        return
 
     def tuck_idle_arm(self):
         if self.sim:
@@ -398,4 +506,4 @@ class Baxter(object):
 
 if __name__ == "__main__":
     rospy.init_node("interface_test")
-    baxter = BaxterRos("left", state=STATE.EE_POSE)
+    baxter = Baxter("left", state=STATE.EE_POSE)
