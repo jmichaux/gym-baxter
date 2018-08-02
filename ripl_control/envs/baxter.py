@@ -78,7 +78,7 @@ class Baxter(object):
             self.control_rate = rospy.Rate(self.rate)
 
             # reset starting state of robot
-            self.reset()
+            # self.reset()
 
     def set_control(self, control):
         """
