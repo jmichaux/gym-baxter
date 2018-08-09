@@ -22,6 +22,8 @@ class CONTROL(IntEnum):
     TORQUE = p.TORQUE_CONTROL
     # 2
     POSITION = p.POSITION_CONTROL
+    # 3
+    EE = p.POSITION_CONTROL
 
 class STATE(IntEnum):
     EE_POSITION = 0
@@ -373,9 +375,10 @@ class Baxter(object):
             action - list or array of joint angles
         Blocking when moving the arm
         """
-        #TODO: assert that actions of right type
         if self.control == CONTROL.POSITION:
             self._apply_position_control(action)
+        elif self.control == CONTROL.EE:
+            self._apply_ee_control(action)
         elif self.control == CONTROL.VELOCITY:
             self._apply_velocity_control(action)
         else:
@@ -388,6 +391,7 @@ class Baxter(object):
             action - list or array of joint angles
         Blocking when moving the arm
         """
+        # TODO: check that action is of right type
         if self.sim:
             pass
         else:
@@ -407,7 +411,11 @@ class Baxter(object):
             self.update_state()
         return
 
+    def _apply_ee_control(self, action):
+        pass
+
     def _apply_velocity_control(self, action):
+        # TODO: check that action is of right type
         if self.sim:
             pass
         else:
@@ -415,6 +423,7 @@ class Baxter(object):
         return
 
     def _apply_torque_control(self, action):
+        # TODO: check that action is of right type
         if self.sim:
             pass
         else:
