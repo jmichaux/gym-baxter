@@ -4,7 +4,7 @@ import pybullet as p
 import time
 
 import pybullet_data
-from baxter import *
+# from baxter import *
 #cid = p.connect(p.UDP,"192.168.86.100")
 cid = p.connect(p.SHARED_MEMORY)
 if (cid<0):
@@ -15,52 +15,136 @@ p.resetSimulation()
 
 WORLD_OFFSET = 0.05
 
-# Load skybox
-# TODO: Adjust lighting
-# plane_path = "/home-nfs/jmichaux/code/envs/gym-baxter/gym_baxter/envs/assets/objects/plane.urdf"
-# objects = [p.loadURDF("plane.urdf")]
-
-# pos_0 = (0, 0, WORLD_OFFSET)
-# orientation_0 = p.getQuaternionFromEuler([0, 0, 0])
-# objects = [p.loadURDF(plane_path, pos_0, orientation_0)]
-#
-# pos_1 = (5, 0, 0)
-# orientation_1 = p.getQuaternionFromEuler([0, -np.pi/2, 0])
-# objects = [p.loadURDF(plane_path, pos_1, orientation_1)]
-
-# pos_2 = (-5, 0, 0)
-# orientation_2 = p.getQuaternionFromEuler([0, np.pi/2, 0])
-# objects = [p.loadURDF(plane_path, pos_2, orientation_2)]
-
-# pos_3 = (0, 5, 0)
-# orientation_3 = p.getQuaternionFromEuler([np.pi/2, 0, 0])
-# objects = [p.loadURDF(plane_path, pos_3, orientation_3)]
-
-# pos_4 = (0, -5, 0)
-# orientation_4 = p.getQuaternionFromEuler([-np.pi/2, 0, 0])
-# objects = [p.loadURDF(plane_path, pos_4, orientation_4)]
-
-
-# urdf_path = "/home/ripl/self_balancing_robot/urdf/simple.urdf"
-# objects = [p.loadURDF(urdf_path, (0,0,.02))]
+# Load plane
+objects = [p.loadURDF("plane.urdf", 0,0,-0.93)]
 
 # Load Baxter
-urdf_path = "/home/ripl/ripl-control/ripl_control/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
+urdf_path = "/home/ripl/ripl-control/ripl_control/envs/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
 baxter_pos = (0.0000, 0.0000000000, 0.00000000)
 baxter_orientation = p.getQuaternionFromEuler([0, 0, np.pi])
 baxter_orientation = p.getQuaternionFromEuler([0, 0, 0])
 objects = [p.loadURDF(urdf_path, basePosition=baxter_pos, baseOrientation=baxter_orientation, useFixedBase=True, flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT | p.URDF_USE_INERTIA_FROM_FILE)]
-# objects = [p.loadURDF(urdf_path, basePosition=baxter_pos, baseOrientation=baxter_orientation)]
-baxter = objects[0]
-#
-# # joints
-# baxter_joints = []
-# head = [5, 7]
-#
-# for i in range(p.getNumJoints(baxter)):
-#     baxter_joints.append(p.getJointInfo(baxter, i)[1].decode("utf-8"))
-#
-# # jointPositions=[ -1.000000, -1.000000, 1.000000, 1.570793, 1.000000, -1.036725, 0.000001 ]
+baxter_id = objects[0]
+
+# baxter params
+max_velocity = 0.0
+max_force = 35.0
+max_gripper_force = 35.0
+left_finger_force = 0
+right_finger_force = 0
+finger_tip_force = 0.
+
+# set initial position and joint control
+initial_pose = [
+  # right arm
+  [12, 0.005309502001432469],
+  [13, -0.5409516930403337],
+  [14, 0.004660885344502314],
+  [15, 0.7525584394255346],
+  [16, 0.0020039031898094538],
+  [18, 1.2527114375915975],
+  [19, -0.0049519009839707265],
+  # right gripper
+  [27, -0.005206632462850682],
+  [29, -0.005206632462850682],
+  # left arm
+  [34, 0.006443994385763649],
+  [35, -0.5429260025686881],
+  [36, 0.0032076910770917574],
+  [37, 0.7532434642513719],
+  [38, -0.00378481197484175],
+  [40, 1.2540471030663223],
+  [41, -0.005206632462850682],
+  # left gripper
+  [49, -0.005206632462850682],
+  [51, -0.005206632462850682]]
+
+for joint_index, joint_val in initial_pose:
+    p.resetJointState(baxter_id, joint_index, joint_val)
+    p.setJointMotorControl2(baxter_id, joint_index, p.POSITION_CONTROL, joint_val)
+
+target_pose = [
+  # right arm
+  [12, 0.00],
+  [13, 0.00],
+  [14, 0.00],
+  [15, 0.00],
+  [16, 0.00],
+  [18, 0.00],
+  [19, 0.00],
+  # right gripper
+  [27, -0.005206632462850682],
+  [29, -0.005206632462850682],
+  # left arm
+  [34, 0.00],
+  [35, 0.00],
+  [36, 0.00],
+  [37, 0.00],
+  [38, 0.00],
+  [40, 0.00],
+  [41, 0.00],
+  # left gripper
+  [49, -0.005206632462850682],
+  [51, -0.005206632462850682]]
+
+
+def setMotorsAngleInRealTimestep(self, motorTargetAngles, motorTargetTime=0, delayTime):
+    if(motorTargetTime == 0):
+        _joint_targetPos = np.array(motorTargetAngles)
+        for i in range(_joint_number):
+            p.setJointMotorControl2(bodyIndex=_robot, jointIndex=_joint_id[i], controlMode=p.POSITION_CONTROL,
+                                    targetPosition=_joint_targetPos[i],
+                                    positionGain=_kp, velocityGain=_kd, force=_torque, maxVelocity=_max_velocity)
+        time.sleep(delayTime)
+    else:
+        _joint_currentPos = _joint_targetPos
+        _joint_targetPos = np.array(motorTargetAngles)
+        for i in range(_joint_number):
+            dydt = (_joint_targetPos-_joint_currentPos)/motorTargetTime
+        internalTime = 0.0
+        reft = time.time()
+        while internalTime < motorTargetTime:
+            internalTime = time.time() - reft
+            for i in range(_joint_number):
+                p.setJointMotorControl2(bodyIndex=_robot, jointIndex=_joint_id[i], controlMode=p.POSITION_CONTROL,
+                                        targetPosition=_joint_currentPos[i] + dydt[i] * internalTime,
+                                        positionGain=_kp, velocityGain=_kd, force=_torque, maxVelocity=_max_velocity)
+
+
+p.setGravity(0.000000,0.000000,-10.000000)
+
+while True:
+# while (time.time() < ref_time+running_time):
+  # p.setGravity(0,0,-10)
+  p.stepSimulation()
+
+
+
+# def setMotorsAngleInFixedTimestep(self, motorTargetAngles, motorTargetTime, delayTime):
+#     if(motorTargetTime == 0):
+#         _joint_targetPos = np.array(motorTargetAngles)
+#         for i in range(_joint_number):
+#             p.setJointMotorControl2(bodyIndex=_robot, jointIndex=_joint_id[i], controlMode=p.POSITION_CONTROL,
+#                                     targetPosition=_joint_targetPos[i],
+#                                     positionGain=_kp, velocityGain=_kd, force=_torque, maxVelocity=_max_velocity)
+#             p.stepSimulation()
+#             time.sleep(_timeStep)
+#     else:
+#         _joint_currentPos = _joint_targetPos
+#         _joint_targetPos = np.array(motorTargetAngles)
+#         for i in range(_joint_number):
+#             dydt = (_joint_targetPos-_joint_currentPos)/motorTargetTime
+#         internalTime = 0.0
+#         while internalTime < motorTargetTime:
+#             internalTime += _timeStep
+#             for i in range(_joint_number):
+#                 p.setJointMotorControl2(bodyIndex=_robot, jointIndex=_joint_id[i], controlMode=p.POSITION_CONTROL,
+#                                         targetPosition=_joint_currentPos[i] + dydt[i] * internalTime,
+#                                         positionGain=_kp, velocityGain=_kd, force=_torque, maxVelocity=_max_velocity)
+#             p.stepSimulation()
+# time.sleep(_timeStep)
+
+
 # baxter_joints = [
 #   # right arm
 #   [12, 0.005309502001432469],
@@ -86,81 +170,3 @@ baxter = objects[0]
 #   # left gripper
 #   [49, 0.02],
 #   [51, -0.02]]
-
-
-
-
-# set position of arms
-# for joint_index, joint_val in baxter_joints:
-#     p.resetJointState(baxter, joint_index, joint_val)
-#     # p.setJointMotorControl2(baxter, jointIndex, p.POSITION_CONTROL, jointVal, 0)
-#     p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, 0)
-
-
-# p.resetJointState(baxter, 40, np.pi/2)
-# p.setJointMotorControl2(baxter, 40, p.POSITION_CONTROL, np.pi/2, 0)
-# p.resetJointState(baxter, 18, np.pi/2)
-# p.setJointMotorControl2(baxter, 18, p.POSITION_CONTROL, np.pi/2, 0)
-
-
-
-# p.addUserDebugText("",[0,0,0.1],textColorRGB=[1,0,0],textSize=1.5,parentObjectUniqueId=baxter, parentLinkIndex=25)
-# p.addUserDebugLine([0,0,0],[1.5,0,0],[1,0,0],parentObjectUniqueId=baxter, parentLinkIndex=25)
-# p.addUserDebugLine([0,0,0],[0,1.5,0],[0,1,0],parentObjectUniqueId=baxter, parentLinkIndex=25)
-# p.addUserDebugLine([0,0,0],[0,0,1.5],[0,0,1],parentObjectUniqueId=baxter, parentLinkIndex=25)
-#
-# # add debug axes to right end effector
-# p.addUserDebugText("",[0,0,0.1],textColorRGB=[1,0,0],textSize=1.5,parentObjectUniqueId=baxter, parentLinkIndex=41)
-# p.addUserDebugLine([0,0,0],[1.5,0,0],[1,0,0],parentObjectUniqueId=baxter, parentLinkIndex=41)
-# p.addUserDebugLine([0,0,0],[0,1.5,0],[0,1,0],parentObjectUniqueId=baxter, parentLinkIndex=41)
-# p.addUserDebugLine([0,0,0],[0,0,1.5],[0,0,1],parentObjectUniqueId=baxter, parentLinkIndex=41)
-
-# add debug axes to right end effector
-# p.addUserDebugText("",[0,0,0.1],textColorRGB=[1,0,0],textSize=1.5,parentObjectUniqueId=baxter, parentLinkIndex=42)
-# p.addUserDebugLine([0,0,0],[1.5,0,0],[0,1,0],parentObjectUniqueId=baxter, parentLinkIndex=42)
-# p.addUserDebugLine([0,0,0],[0,1.5,0],[0,1,0],parentObjectUniqueId=baxter, parentLinkIndex=42)
-# p.addUserDebugLine([0,0,0],[0,0,1.5],[0,1,0],parentObjectUniqueId=baxter, parentLinkIndex=42)
-# Load workspace
-
-# Large workspace
-# workspace_path = "/home-nfs/jmichaux/code/envs/gym-baxter/gym_baxter/envs/assets/objects/workspace.urdf"
-# objects = [p.loadURDF(workspace_path, basePosition=(1.90000,-0.500000, 0.400000), baseOrientation=(0.000000,0.000000,0.707107,0.707107), useFixedBase=True)]
-
-# small workspace
-# workspace_small_path = "/home-nfs/jmichaux/code/envs/gym-baxter/gym_baxter/envs/assets/objects/workspace_small.urdf"
-# objects = [p.loadURDF(workspace_small_path, basePosition=(2.1500, 0.000000, 0.400000), baseOrientation=(0.000000,0.000000,0.707107,0.707107), useFixedBase=True)]
-#
-# # Load target
-# target_path = "/home-nfs/jmichaux/code/envs/gym-baxter/gym_baxter/envs/assets/objects/target.urdf"
-# objects = [p.loadURDF(target_path, basePosition=(2.00, 0.00000, 1.400000), useFixedBase=True)]
-
-# load blocks
-
-
-# Load puck
-
-p.setGravity(0.000000,0.000000,-10.000000)
-# p.setGravity(0,0,-10)
-
-# p.setRealTimeSimulation(1)
-# ref_time = time.time()
-#
-# # This demonstrates that I am actually planning in the world coordinates
-# pos = (2.00, 0.00000, 1.400000)
-# orn = p.getQuaternionFromEuler([0, np.pi,0])
-# joint_poses = p.calculateInverseKinematics(baxter, 48, pos, None)
-#
-# num_joints = p.getNumJoints(baxter)
-# for i in range(num_joints):
-#   joint_info = p.getJointInfo(baxter, i)
-#   q = joint_info[3]
-#   print(q, q-7)
-#   if q > -1:
-#     p.resetJointState(baxter, i, joint_poses[q - 7])
-#     p.setJointMotorControl2(baxter, i, p.POSITION_CONTROL, joint_poses[q - 7], 0)
-#
-# running_time = 360 # seconds
-while True:
-# while (time.time() < ref_time+running_time):
-  # p.setGravity(0,0,-10)
-  p.stepSimulation()
