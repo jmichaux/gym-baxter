@@ -8,6 +8,7 @@ import numpy as np
 import rospy
 import baxter_interface
 from baxter_interface import CHECK_VERSION, Limb, Gripper
+# from pybullet_interface import Limb, Gripper
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
@@ -17,20 +18,18 @@ import pybullet as p
 
 class CONTROL(IntEnum):
     # 0
-    VELOCITY = p.VELOCITY_CONTROL
+    VELOCITY = 0
     # 1
-    TORQUE = p.TORQUE_CONTROL
-    # 2
-    POSITION = p.POSITION_CONTROL
-    # 3
-    # Requires IK
-    EE = p.POSITION_CONTROL
+    TORQUE = 1
+    # 2 (Requires IK)
+    POSITION = 2
+    EE = 2
 
 class STATE(IntEnum):
-    EE_POSE = 3
-    JOINT_ANGLES = 2
     JOINT_VELOCITIES = 0
     JOINT_TORQUES = 1
+    JOINT_ANGLES = 2
+    EE_POSE = 3
     PIXELS = 4
 
 class Baxter(object):
@@ -46,7 +45,6 @@ class Baxter(object):
         self.sim = sim
 
         if self.sim:
-            print("hello")
             self.baxter_path =  os.path.expanduser("~") + baxter_path
             self.time_step = time_step
             # values taken from
@@ -119,40 +117,14 @@ class Baxter(object):
 
     def _reset_sim(self):
         '''Load Baxter, table, and tray URDF'''
-        objects = [p.loadURDF(baxter_path, [0.00000,-0.000000, 1.00000,], useFixedBase=True)]
-        objects = [p.loadURDF("table/table.urdf", 1.000000,-0.200000,0.000000,0.000000,0.000000,0.707107,0.707107)]
+        # Load assets for Baxter
+        objects = [p.loadURDF(baxter_path, [0.00000,0.000000, 1.00000,], useFixedBase=True)]
+        # objects = [p.loadURDF("table/table.urdf", 1.000000,-0.200000,0.000000,0.000000,0.000000,0.707107,0.707107)]
         self.baxter_id = objects[0]
         self.num_joints = p.getNumJoints(self.baxter_id)
 
-        # Initial pose for left and right arms
-        self.initial_pose = [
-          # right arm
-          [12, 0.005309502001432469],
-          [13, -0.5409516930403337],
-          [14, 0.004660885344502314],
-          [15, 0.7525584394255346],
-          [16, 0.0020039031898094538],
-          [18, 1.2527114375915975],
-          [19, -0.0049519009839707265],
-          # right gripper
-          [27, -0.005206632462850682],
-          [29, -0.005206632462850682],
-          # left arm
-          [34, 0.006443994385763649],
-          [35, -0.5429260025686881],
-          [36, 0.0032076910770917574],
-          [37, 0.7532434642513719],
-          [38, -0.00378481197484175],
-          [40, 1.2540471030663223],
-          [41, -0.005206632462850682],
-          # left gripper
-          [49, -0.005206632462850682],
-          [51, -0.005206632462850682]]
-
-        # set position of arms
-        for joint_index, joint_val in self.initial_pose:
-            p.resetJointState(self.baxter_id, joint_index, joint_val)
-            p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
+        # move arms to ready position
+        self.set_ready_position()
 
         # Get pose of end effectors
         self.left_ee_pos, self.left_ee_angle = self.get_ee_pose(end_effector="left")
@@ -181,13 +153,15 @@ class Baxter(object):
         of a Limb and its gripper.
         """
         if self.sim:
-            pass
+            self.left_arm = pybullet_interface.Limb("left")
+            # self.left_arm.gripper = pybullet_interface.Gripper("left")
+
+            self.right_arm = pybullet_interface.Limb("right")
+            # self.right_arm.gripper = pybullet_interface.Gripper("right")
         else:
-            # create left arm
             self.left_arm = Limb("left")
             self.left_arm.gripper = Gripper("left")
 
-            # create right arm
             self.right_arm = Limb("right")
             self.right_arm.gripper = Gripper("right")
         return
@@ -197,8 +171,10 @@ class Baxter(object):
         (Blocking) Calibrates gripper(s) if not
         yet calibrated
         """
-        self.left_arm.gripper.calibrate()
-        self.right_arm.gripper.calibrate()
+        if not self.left_arm.gripper.calibrated():
+            self.left_arm.gripper.calibrate()
+        if not self.right_arm.gripper.calibrated():
+            self.right_arm.gripper.calibrate()
         return
 
     def enable(self):
@@ -236,26 +212,22 @@ class Baxter(object):
 
     def move_to_ee_pose(self, pose, arm="right"):
         """
-        Move end effector to specified pose
-
-        (Blocking)
+        (Blocking) Move end effector to specified pose
 
         Args
             pose (list): [X, Y, Z, r, p, w]
             arm (string): "left" or "right"
         """
-        joints = self.get_ik(pose)
+        joints = self.calc_ik(pose)
         if arm == "left":
             self.left_arm.move_to_joint_positions(joints)
         else:
             self.right_arm.move_to_joint_positions(joints)
         return
 
-    def set_to_ee_pose(self, pose, arm="right"):
+    def set_ee_pose(self, pose, arm="right"):
         """
-        Move end effector to specified pose
-
-        (Not Blocking)
+        (Not Blocking) Move end effector to specified pose
 
         Args
             pose (list): [X, Y, Z, r, p, w]
@@ -356,10 +328,10 @@ class Baxter(object):
             pass
         return list(self.right_arm.endpoint_pose()['orientation'])
 
-    def get_joint_velocities(self):
+    def get_joint_velocities(self, arm):
         pass
 
-    def get_joint_torques(self):
+    def get_joint_torques(self, arm):
         pass
 
     def create_joint_dicts(self):
@@ -487,12 +459,41 @@ class Baxter(object):
         return action_dict
 
     def set_ready_position(self):
-        angles = [0.0, -0.55, 0.0, 0.75, 0.0, 1.26, 0.0]
-        idle_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        print("Setting ready position")
+        """
+        Sets ready position for both arms
+        """
         if self.sim:
-            pass
+            # Initial pose for left and right arms
+            initial_pose = [
+              # right arm
+              [12, 0.00],
+              [13, -0.55],
+              [14, 0.00],
+              [15, 0.75],
+              [16, 0.00],
+              [18, 1.26],
+              [19, 0.00],
+              # right gripper
+              [27, -0.0052],
+              [29, -0.0052],
+              # left arm
+              [34, 0.00],
+              [35, -0.55],
+              [36, 0.00],
+              [37, 0.75],
+              [38, 0.00],
+              [40, 1.26],
+              [41, 0.00],
+              # left gripper
+              [49, -0.0052],
+              [51, -0.0052]]
+
+            # set position of arms
+            for joint_index, joint_val in initial_pose:
+                p.resetJointState(self.baxter_id, joint_index, joint_val)
+                p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
         else:
+            angles = [0.0, -0.55, 0.0, 0.75, 0.0, 1.26, 0.0]
             # left arm
             l_position = dict(zip(self.left_arm.joint_names(), angles))
             self.left_arm.set_joint_positions(l_position)
@@ -501,9 +502,35 @@ class Baxter(object):
             self.right_arm.move_to_joint_positions(r_position)
         return
 
-    def get_ik(self, ee_pose):
+    def calc_ik(self, ee_pose, arm="right"):
         """
         Calculate inverse kinematics for a given end effector pose
+        """
+        if self.sim:
+            joints = self._sim_ik(ee_pose, arm)
+        else:
+            joints = self._real_ik(ee_pose, arm)
+        return joints
+
+    def _sim_ik(self, ee_pose, arm="right"):
+        """
+        (Sim) Calculate inverse kinematics for a given end effector pose
+
+
+        Args:
+            ee_pose (tuple or list): [pos, orn] of desired end effector pose
+                pos - x,y,z
+                orn - r,p,w
+        Returns:
+            joint_angles (list): List of joint angles
+        """
+        #TODO:
+        #Assert that the correct joint angles change
+        pass
+
+    def _real_ik(self, ee_pose, arm="right"):
+        """
+        (Real) Calculate inverse kinematics for a given end effector pose
 
         Args:
             ee_pose (tuple or list): [pos, orn] of desired end effector pose
@@ -516,58 +543,53 @@ class Baxter(object):
         orn = ee_pose[3:]
         orn = self.euler_to_quat(orn)
 
-        if self.sim:
-            pass
-        else:
-            # TODO: This won't work when self._arms ==  "both"
-            ns = "ExternalTools/" + self._arms + "/PositionKinematicsNode/IKService"
-            iksvc = rospy.ServiceProxy(ns, SolvePositionIK)
-            ikreq = SolvePositionIKRequest()
-            hdr = Header(stamp=rospy.Time.now(), frame_id='base')
+        ns = "ExternalTools/" + arm + "/PositionKinematicsNode/IKService"
+        iksvc = rospy.ServiceProxy(ns, SolvePositionIK)
+        ikreq = SolvePositionIKRequest()
+        hdr = Header(stamp=rospy.Time.now(), frame_id='base')
 
-            ik_pose = PoseStamped()
-            ik_pose.pose.position.x = pos[0]
-            ik_pose.pose.position.y = pos[1]
-            ik_pose.pose.position.z = pos[2]
-            ik_pose.pose.orientation.x = orn[0]
-            ik_pose.pose.orientation.y = orn[1]
-            ik_pose.pose.orientation.z = orn[2]
-            ik_pose.pose.orientation.w = orn[3]
-            ik_pose.header = hdr
-            ikreq.pose_stamp.append(ik_pose)
+        ik_pose = PoseStamped()
+        ik_pose.pose.position.x = pos[0]
+        ik_pose.pose.position.y = pos[1]
+        ik_pose.pose.position.z = pos[2]
+        ik_pose.pose.orientation.x = orn[0]
+        ik_pose.pose.orientation.y = orn[1]
+        ik_pose.pose.orientation.z = orn[2]
+        ik_pose.pose.orientation.w = orn[3]
+        ik_pose.header = hdr
+        ikreq.pose_stamp.append(ik_pose)
 
-            try:
-                rospy.wait_for_service(ns, 5.0)
-                resp = iksvc(ikreq)
-                # print(resp)
-                limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
-                return limb_joints
-            except (rospy.ServiceException, rospy.ROSException), e:
-                rospy.logerr("Service call failed: %s" % (e,))
-                return {}
-            #
-            # # Check if result valid, and type of seed ultimately used to get solution
-            # # convert rospy's string representation of uint8[]'s to int's
-            # resp_seeds = struct.unpack('<%dB' % len(resp.result_type),
-            #                            resp.result_type)
-            # print resp_seeds
-            # if (resp_seeds[0] != resp.RESULT_INVALID):
-            #     seed_str = {
-            #                 ikreq.SEED_USER: 'User Provided Seed',
-            #                 ikreq.SEED_CURRENT: 'Current Joint Angles',
-            #                 ikreq.SEED_NS_MAP: 'Nullspace Setpoints',
-            #                }.get(resp_seeds[0], 'None')
-            #     print("SUCCESS - Valid Joint Solution Found from Seed Type: %s" %
-            #           (seed_str,))
-            #     # Format solution into Limb API-compatible dictionary
-            #     limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
-            #     print "\nIK Joint Solution:\n", limb_joints
-            #     print "------------------"
-            #     print "Response Message:\n", resp
-            # else:
-            #     print("INVALID POSE - No Valid Joint Solution Found.")
-            # # limb_interface.move_to_joint_positions(limb_joints)
-            # return limb_joints
+        try:
+            rospy.wait_for_service(ns, 5.0)
+            resp = iksvc(ikreq)
+            limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
+            return limb_joints
+        except (rospy.ServiceException, rospy.ROSException), e:
+            rospy.logerr("Service call failed: %s" % (e,))
+            return {}
+        #
+        # # Check if result valid, and type of seed ultimately used to get solution
+        # # convert rospy's string representation of uint8[]'s to int's
+        # resp_seeds = struct.unpack('<%dB' % len(resp.result_type),
+        #                            resp.result_type)
+        # print resp_seeds
+        # if (resp_seeds[0] != resp.RESULT_INVALID):
+        #     seed_str = {
+        #                 ikreq.SEED_USER: 'User Provided Seed',
+        #                 ikreq.SEED_CURRENT: 'Current Joint Angles',
+        #                 ikreq.SEED_NS_MAP: 'Nullspace Setpoints',
+        #                }.get(resp_seeds[0], 'None')
+        #     print("SUCCESS - Valid Joint Solution Found from Seed Type: %s" %
+        #           (seed_str,))
+        #     # Format solution into Limb API-compatible dictionary
+        #     limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
+        #     print "\nIK Joint Solution:\n", limb_joints
+        #     print "------------------"
+        #     print "Response Message:\n", resp
+        # else:
+        #     print("INVALID POSE - No Valid Joint Solution Found.")
+        # # limb_interface.move_to_joint_positions(limb_joints)
+        # return limb_joints
 
     def euler_to_quat(self, orn):
         # TODO: replace this function
