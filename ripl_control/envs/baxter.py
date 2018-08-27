@@ -36,7 +36,6 @@ class STATE(IntEnum):
 class Baxter(object):
     def __init__(self,
                  sim=False,
-                 arm="right",
                  time_step=1.0,
                  control="position",
                  state=None,
@@ -64,7 +63,6 @@ class Baxter(object):
             self.time_step = time_step
 
             # create arm(s)
-            self._arm = arm
             self.create_arms()
 
             # create joint dictionaries
@@ -177,7 +175,6 @@ class Baxter(object):
         # joint damping coefficients
         self.jd = None
 
-
     def create_arms(self):
         """
         Create arm interface objects from Baxter. An arm consists
@@ -237,9 +234,43 @@ class Baxter(object):
             self.current_state = self.get_state()
         return
 
+    def move_to_ee_pose(self, pose, arm="right"):
+        """
+        Move end effector to specified pose
+
+        (Blocking)
+
+        Args
+            pose (list): [X, Y, Z, r, p, w]
+            arm (string): "left" or "right"
+        """
+        joints = self.get_ik(pose)
+        if arm == "left":
+            self.left_arm.move_to_joint_positions(joints)
+        else:
+            self.right_arm.move_to_joint_positions(joints)
+        return
+
+    def set_to_ee_pose(self, pose, arm="right"):
+        """
+        Move end effector to specified pose
+
+        (Not Blocking)
+
+        Args
+            pose (list): [X, Y, Z, r, p, w]
+            arm (string): "left" or "right"
+        """
+        joints = self.get_ik(pose)
+        if arm == "left":
+            self.left_arm.set_joint_positions(joints)
+        else:
+            self.right_arm.set_joint_positions(joints)
+        return
+
     def get_ee_pose(self, arm="right", mode=None):
         """
-        Returns effector pose.
+        Returns end effector pose for specified arm.
 
         End effector pose is a list of values corresponding to the 3D cartesion coordinates
         and roll (r), pitch (p), and yaw (w) Euler angles.
@@ -260,9 +291,9 @@ class Baxter(object):
 
     def get_ee_position(self, arm="right"):
         """
-        Returns position of end effector
+        Returns end effector position for specified arm.
 
-        Returns the 3D cartesion coordinates of the end effector
+        Returns the 3D cartesion coordinates of the end effector.
         Args
             arm (string): "left" or "right"
         Returns
@@ -282,7 +313,7 @@ class Baxter(object):
         Returns
             orn (list): list of Euler angles or Quaternion
         """
-        if arm = "left":
+        if arm == "left":
             orn = self._left_ee_orientation()
         else:
             orn = self._right_ee_orientation()
@@ -334,7 +365,6 @@ class Baxter(object):
     def create_joint_dicts(self):
         self.joint_dict = self.create_joint_lookup_dict()
         self.joint_ranges = self.create_joint_range_dict()
-        self.num_joints = len(self.joint_dict)
         return
 
     def create_joint_lookup_dict(self):
@@ -342,12 +372,12 @@ class Baxter(object):
         Creates a dictionary that maps ints to joint names
         {int: joint name}
         """
-        if self._arms == "both":
-            joints = self.left_arm.joint_names() + self.right_arm.joint_names()
+        if self.sim:
+            pass
         else:
-            joints = self.arm.joint_names()
-        inds = range(len(joints))
-        joint_dict = dict(zip(inds, joints))
+            joints = self.left_arm.joint_names() + self.right_arm.joint_names()
+            inds = range(len(joints))
+            joint_dict = dict(zip(inds, joints))
         return joint_dict
 
     def create_joint_range_dict(self):
@@ -370,12 +400,6 @@ class Baxter(object):
                 'right_w1' : {'min': -1.5707, 'max': 2.094},
                 'right_w2' : {'min': -3.059, 'max': 3.059 }}
         return joint_ranges
-
-    """
-    There are different types of actions
-        joint/position - action is list of joint angles
-
-    """
 
     def apply_action(self, action):
         """
@@ -469,22 +493,12 @@ class Baxter(object):
         if self.sim:
             pass
         else:
-            if self._arms == "both":
-                # left arm
-                l_position = dict(zip(self.left_arm.joint_names(), angles))
-                self.left_arm.set_joint_positions(l_position)
-                # right arm
-                r_position = dict(zip(self.right_arm.joint_names(), angles))
-                self.right_arm.move_to_joint_positions(r_position)
-            else:
-                #TODO: figure out why using set_joint_positions doesn't always send a command
-                # active arm
-                arm_position = dict(zip(self.arm.joint_names(), angles))
-                self.arm.move_to_joint_positions(arm_position)
-                # self.arm.set_joint_positions(arm_position)
-                # idle arm
-                idle_position = dict(zip(self._idle_arm.joint_names(), idle_angles))
-                self._idle_arm.move_to_joint_positions(idle_position)
+            # left arm
+            l_position = dict(zip(self.left_arm.joint_names(), angles))
+            self.left_arm.set_joint_positions(l_position)
+            # right arm
+            r_position = dict(zip(self.right_arm.joint_names(), angles))
+            self.right_arm.move_to_joint_positions(r_position)
         return
 
     def get_ik(self, ee_pose):
@@ -582,30 +596,6 @@ class Baxter(object):
         angles = [0.0, -0.55, 0.0, 0.75, 0.0, 1.26, 0.0]
         positions = dict(zip(self._idle_arm.joint_names(), angles))
         self._idle_arm.set_joint_positions(positions)
-
-    def move_to_ee_pose(self, pose):
-        """
-        Move end effector to specified pose
-
-        Args
-            pose (list): [X, Y, Z, r, p, w]
-        """
-        joints = self.get_ik(pose)
-        self.arm.move_to_joint_positions(joints)
-        return
-    #
-    # def move_to_ee_position(self, position):
-    #     pass
-    #
-    # def move_joint_positions(self, joint_angles):
-    #     pass
-    #
-    # def set_joint_velocities(self, joint_velocities):
-    #     pass
-    #
-    # def set_joint_torques(self, joint_torques):
-    #     pass
-
 
 
 
