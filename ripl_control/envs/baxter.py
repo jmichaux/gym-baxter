@@ -50,7 +50,9 @@ class Baxter(object):
             print("hello")
             self.baxter_path =  os.path.expanduser("~") + baxter_path
             self.time_step = time_step
-            # values taken from http://sdk.rethinkrobotics.com/wiki/Hardware_Specifications#Peak_Torque
+            # values taken from
+            # http://sdk.rethinkrobotics.com/wiki/Hardware_Specifications#Peak_Torque
+            # TODO: verify these numbers
             self.max_velocity = 0.0
             self.max_force = 35.0
             self.max_gripper_force = 35.0
@@ -80,7 +82,7 @@ class Baxter(object):
             self.control_rate = rospy.Rate(self.rate)
 
             # reset starting state of robot
-            # self.reset()
+            self.reset()
 
     def set_control(self, control):
         """
@@ -478,6 +480,36 @@ class Baxter(object):
                 self._idle_arm.move_to_joint_positions(idle_position)
         return
 
+    def get_ik(self, ee_pose):
+        """
+        Calculate inverse kinematics for a given end effector pose
+
+        Args:
+            ee_pose (tuple or list): [pos, orn] of desired end effector pose
+                pos - x,y,z
+                orn - r,p,w
+        Returns:
+            joint_angles (list): List of joint angles
+        """
+        pos = ee_pose[:3]
+        orn = ee_pose[3:]
+        # convert orn to quaternion
+        orn = self.euler_to_quat(orn)
+        if self.sim:
+            pass
+        else:
+
+        return
+
+    def euler_to_quat(self, orn):
+        # TODO: replace this function
+        # TODO: assert orn is right shape
+        return p.getQuaternionFromEuler(orn)
+
+    def quat_to_euler(self, orn):
+        # TODO: assert orn is right shape
+        return p.getEulerFromQuaternion(orn)
+
     def tuck_idle_arm(self):
         if self.sim:
             pass
@@ -511,6 +543,8 @@ class Baxter(object):
 
     def set_joint_torques(self, joint_torques):
         pass
+
+
 
 
 if __name__ == "__main__":
