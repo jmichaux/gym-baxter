@@ -23,20 +23,20 @@ class CONTROL(IntEnum):
     # 2
     POSITION = p.POSITION_CONTROL
     # 3
+    # Requires IK
     EE = p.POSITION_CONTROL
 
 class STATE(IntEnum):
-    EE_POSITION = 0
-    EE_POSE = 1
+    EE_POSE = 3
     JOINT_ANGLES = 2
-    JOINT_VELOCITIES = 3
-    JOINT_TORQUES = 4
-    PIXELS = 5
+    JOINT_VELOCITIES = 0
+    JOINT_TORQUES = 1
+    PIXELS = 4
 
 class Baxter(object):
     def __init__(self,
                  sim=False,
-                 arms="right",
+                 arm="right",
                  time_step=1.0,
                  control="position",
                  state=None,
@@ -64,7 +64,7 @@ class Baxter(object):
             self.time_step = time_step
 
             # create arm(s)
-            self._arms = arms
+            self._arm = arm
             self.create_arms()
 
             # create joint dictionaries
@@ -99,11 +99,8 @@ class Baxter(object):
         return
 
     def set_command_time_out(self):
-        if self._arms == "both":
-            self.left_arm.set_command_timeout(self.freq * self.missed_cmds)
-            self.right_arm.set_command_timeout(self.freq * self.missed_cmds)
-        else:
-            self.arm.set_command_timeout((1.0 / self.rate) * self.missed_cmds)
+        self.left_arm.set_command_timeout(self.freq * self.missed_cmds)
+        self.right_arm.set_command_timeout(self.freq * self.missed_cmds)
         return
 
     def reset(self):
@@ -189,29 +186,13 @@ class Baxter(object):
         if self.sim:
             pass
         else:
-            if self._arms == "both":
-                # create left arm
-                print("Creating both arms...")
-                self.left_arm = Limb("left")
-                self.left_arm.gripper = Gripper("left")
-                # create right arm
-                self.right_arm = Limb("right")
-                self.right_arm.gripper = Gripper("right")
-                self.num_arms = 2
-            elif self._arms == "left":
-                # create left arm only
-                print("Creating left arm...")
-                self.arm = self.left_arm = Limb("left")
-                self.arm.gripper = self.left_arm.gripper = Gripper("left")
-                self._idle_arm = Limb("right")
-                self.num_arms = 1
-            elif self._arms == "right":
-                # create right arm only
-                print("Creating right arm...")
-                self.arm = self.right_arm = Limb("right")
-                self.arm.gripper = self.right_arm.gripper = Gripper("right")
-                self._idle_arm = Limb("left")
-                self.num_arms = 1
+            # create left arm
+            self.left_arm = Limb("left")
+            self.left_arm.gripper = Gripper("left")
+
+            # create right arm
+            self.right_arm = Limb("right")
+            self.right_arm.gripper = Gripper("right")
         return
 
     def calibrate_grippers(self):
@@ -219,14 +200,8 @@ class Baxter(object):
         (Blocking) Calibrates gripper(s) if not
         yet calibrated
         """
-        if self._arms == "both":
-            if not self.left_arm.gripper.calibrated():
-                self.left_arm.gripper.calibrate()
-            if not self.right_arm.gripper.calibrated():
-                self.right_arm.gripper.calibrate()
-        else:
-            if not self.arm.gripper.calibrated():
-                self.arm.gripper.calibrate()
+        self.left_arm.gripper.calibrate()
+        self.right_arm.gripper.calibrate()
         return
 
     def enable(self):
@@ -262,79 +237,92 @@ class Baxter(object):
             self.current_state = self.get_state()
         return
 
-    def get_ee_pose(self, mode=None):
+    def get_ee_pose(self, arm="right", mode=None):
         """
-        Returns effector pose as list
+        Returns effector pose.
 
         End effector pose is a list of values corresponding to the 3D cartesion coordinates
         and roll (r), pitch (p), and yaw (w) Euler angles.
-        pose = [X, Y, Z, r, p, w]
-        """
-        if self.sim:
-            pass
-        else:
-            if self._arms == "both":
-                left_pos
-                left_pose = self._left_ee_position() + self._left_ee_orientation()
-                right_pose =  self._right_ee_position() + self._right_ee_orientation()
-                return left_pose + right_pose
-            else:
-                pos = self.get_ee_position()
-                orn = self.get_ee_orientation(mode)
-                return self.get_ee_position() + self.get_ee_orientation()
 
-    def get_ee_position(self):
+        Args
+            arm (string): "right" or "left"
+            mode (string): "Quaternion" or "quaterion" or "quat"
+        Returns
+            pose (list): Euler angles [X,Y,Z,r,p,w] or Quaternion [X,Y,Z,x,y,z,w]
         """
-        Returns a list of the position of the end effector(s)
-        [X, Y, Z] or
-        [X_left, Y_left, Z_left, X_right, Y_right, Z_right]
-        """
-        if self.sim:
-            pass
+        if arm == "left":
+            pos = self.get_ee_position("left")
+            orn = self.get_ee_orientation("left", mode=mode)
         else:
-            if self._arms == "both":
-                return self._left_ee_position() + self._right_ee_position()
-            else:
-                return list(self.arm.endpoint_pose()['position'])
+            pos = self.get_ee_position("right")
+            orn = self.get_ee_orientation("right", mode=mode)
+        return pos + orn
 
-    def get_ee_orientation(self, mode=None):
+    def get_ee_position(self, arm="right"):
+        """
+        Returns position of end effector
+
+        Returns the 3D cartesion coordinates of the end effector
+        Args
+            arm (string): "left" or "right"
+        Returns
+            [X,Y,Z]
+        """
+        if arm == "left":
+            return list(self.left_arm.endpoint_pose()['position'])
+        elif arm == "right":
+            return list(self.right_arm.endpoint_pose()['position'])
+
+    def get_ee_orientation(self, arm="right", mode=None):
         """
         Returns a list of the orientations of the end effectors(s)
         Args
+            arm (string): "right" or "left"
             mode (string): specifies angle representation
         Returns
-            orn (list): list of Euler angles or Quaternions
+            orn (list): list of Euler angles or Quaternion
         """
-        if self.sim:
-            pass
+        if arm = "left":
+            orn = self._left_ee_orientation()
         else:
-            if self._arms == "both":
-                left = self.quat_to_euler(self._left_ee_orientation())
-                right = self.quat_to_euler(self._right_ee_orientation())
-                return left + right
-            else:
-                orn = list(self.arm.endpoint_pose()['orientation'])
-                if mode is in ["Quaternion", "quaternion", "quat"]:
-                    return orn
-                else:
-                    return p.getEulerFromQuaternion(orn)
+            orn = self._right_ee_orientation()
+        if mode in ["Quaternion", "quaternion", "quat"]:
+                return orn
+        else:
+            return list(p.getEulerFromQuaternion(orn))
 
     def _left_ee_position(self):
+        """
+        Returns the position of the left end effector
+        """
         if self.sim:
             pass
         else:
             return list(self.left_arm.endpoint_pose()['position'])
 
     def _right_ee_position(self):
+        """
+        Returns the position of the right end effector
+        """
+        if self.sim:
+            pass
         return list(self.right_arm.endpoint_pose()['position'])
 
     def _left_ee_orientation(self):
+        """
+        Returns the orientation of the left end effector
+        """
         if self.sim:
             pass
         else:
             return list(self.left_arm.endpoint_pose()['orientation'])
 
     def _right_ee_orientation(self):
+        """
+        Returns the orientation of the right end effector
+        """
+        if self.sim:
+            pass
         return list(self.right_arm.endpoint_pose()['orientation'])
 
     def get_joint_velocities(self):
@@ -512,30 +500,18 @@ class Baxter(object):
         """
         pos = ee_pose[:3]
         orn = ee_pose[3:]
-        # convert orn to quaternion
         orn = self.euler_to_quat(orn)
+
         if self.sim:
             pass
         else:
-
+            # TODO: This won't work when self._arms ==  "both"
             ns = "ExternalTools/" + self._arms + "/PositionKinematicsNode/IKService"
             iksvc = rospy.ServiceProxy(ns, SolvePositionIK)
             ikreq = SolvePositionIKRequest()
             hdr = Header(stamp=rospy.Time.now(), frame_id='base')
-            # change this
-            # limb_interface = baxter_interface.Limb(limb)
-            # current_limb_dict = limb_interface.joint_angles()
-            current_pose = self.arm.endpoint_pose()
 
             ik_pose = PoseStamped()
-            # ik_pose.pose.position.x = current_pose['position'].x
-            # ik_pose.pose.position.y = current_pose['position'].y
-            # ik_pose.pose.position.z = current_pose['position'].z + 0.2
-            # ik_pose.pose.orientation.x = current_pose['orientation'].x
-            # ik_pose.pose.orientation.y = current_pose['orientation'].y
-            # ik_pose.pose.orientation.z = current_pose['orientation'].z
-            # ik_pose.pose.orientation.w = current_pose['orientation'].w
-
             ik_pose.pose.position.x = pos[0]
             ik_pose.pose.position.y = pos[1]
             ik_pose.pose.position.z = pos[2]
@@ -546,19 +522,15 @@ class Baxter(object):
             ik_pose.header = hdr
             ikreq.pose_stamp.append(ik_pose)
 
-            # print ikreq
             try:
                 rospy.wait_for_service(ns, 5.0)
                 resp = iksvc(ikreq)
                 # print(resp)
                 limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
                 return limb_joints
-
-                #TODO: remove this line
-
             except (rospy.ServiceException, rospy.ROSException), e:
                 rospy.logerr("Service call failed: %s" % (e,))
-                return 1
+                return {}
             #
             # # Check if result valid, and type of seed ultimately used to get solution
             # # convert rospy's string representation of uint8[]'s to int's
@@ -612,19 +584,27 @@ class Baxter(object):
         self._idle_arm.set_joint_positions(positions)
 
     def move_to_ee_pose(self, pose):
-        pass
+        """
+        Move end effector to specified pose
 
-    def move_to_ee_position(self, position):
-        pass
-
-    def move_joint_positions(self, joint_angles):
-        pass
-
-    def set_joint_velocities(self, joint_velocities):
-        pass
-
-    def set_joint_torques(self, joint_torques):
-        pass
+        Args
+            pose (list): [X, Y, Z, r, p, w]
+        """
+        joints = self.get_ik(pose)
+        self.arm.move_to_joint_positions(joints)
+        return
+    #
+    # def move_to_ee_position(self, position):
+    #     pass
+    #
+    # def move_joint_positions(self, joint_angles):
+    #     pass
+    #
+    # def set_joint_velocities(self, joint_velocities):
+    #     pass
+    #
+    # def set_joint_torques(self, joint_torques):
+    #     pass
 
 
 
