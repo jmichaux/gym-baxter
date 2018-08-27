@@ -262,19 +262,25 @@ class Baxter(object):
             self.current_state = self.get_state()
         return
 
-    def get_ee_pose(self):
+    def get_ee_pose(self, mode=None):
         """
-        Returns a list of
-        pose = [X, Y, Z, x, y, z, w]
+        Returns effector pose as list
+
+        End effector pose is a list of values corresponding to the 3D cartesion coordinates
+        and roll (r), pitch (p), and yaw (w) Euler angles.
+        pose = [X, Y, Z, r, p, w]
         """
         if self.sim:
             pass
         else:
             if self._arms == "both":
+                left_pos
                 left_pose = self._left_ee_position() + self._left_ee_orientation()
                 right_pose =  self._right_ee_position() + self._right_ee_orientation()
                 return left_pose + right_pose
             else:
+                pos = self.get_ee_position()
+                orn = self.get_ee_orientation(mode)
                 return self.get_ee_position() + self.get_ee_orientation()
 
     def get_ee_position(self):
@@ -291,20 +297,27 @@ class Baxter(object):
             else:
                 return list(self.arm.endpoint_pose()['position'])
 
-    def get_ee_orientation(self):
+    def get_ee_orientation(self, mode=None):
         """
         Returns a list of the orientations of the end effectors(s)
-        [theta_x, theta_y, theta_z] or
-        [the_x_l, theta_y_l, theta_z_l, the_x_r, theta_y_r, theta_z_r]
+        Args
+            mode (string): specifies angle representation
+        Returns
+            orn (list): list of Euler angles or Quaternions
         """
         if self.sim:
             pass
         else:
             if self._arms == "both":
-                return self._left_ee_orientation() + self._right_ee_orientation()
+                left = self.quat_to_euler(self._left_ee_orientation())
+                right = self.quat_to_euler(self._right_ee_orientation())
+                return left + right
             else:
-                # TODO: transform to Euler angles
-                return list(self.arm.endpoint_pose()['orientation'])
+                orn = list(self.arm.endpoint_pose()['orientation'])
+                if mode is in ["Quaternion", "quaternion", "quat"]:
+                    return orn
+                else:
+                    return p.getEulerFromQuaternion(orn)
 
     def _left_ee_position(self):
         if self.sim:
@@ -369,6 +382,12 @@ class Baxter(object):
                 'right_w1' : {'min': -1.5707, 'max': 2.094},
                 'right_w2' : {'min': -3.059, 'max': 3.059 }}
         return joint_ranges
+
+    """
+    There are different types of actions
+        joint/position - action is list of joint angles
+
+    """
 
     def apply_action(self, action):
         """
@@ -499,7 +518,70 @@ class Baxter(object):
             pass
         else:
 
-        return
+            ns = "ExternalTools/" + self._arms + "/PositionKinematicsNode/IKService"
+            iksvc = rospy.ServiceProxy(ns, SolvePositionIK)
+            ikreq = SolvePositionIKRequest()
+            hdr = Header(stamp=rospy.Time.now(), frame_id='base')
+            # change this
+            # limb_interface = baxter_interface.Limb(limb)
+            # current_limb_dict = limb_interface.joint_angles()
+            current_pose = self.arm.endpoint_pose()
+
+            ik_pose = PoseStamped()
+            # ik_pose.pose.position.x = current_pose['position'].x
+            # ik_pose.pose.position.y = current_pose['position'].y
+            # ik_pose.pose.position.z = current_pose['position'].z + 0.2
+            # ik_pose.pose.orientation.x = current_pose['orientation'].x
+            # ik_pose.pose.orientation.y = current_pose['orientation'].y
+            # ik_pose.pose.orientation.z = current_pose['orientation'].z
+            # ik_pose.pose.orientation.w = current_pose['orientation'].w
+
+            ik_pose.pose.position.x = pos[0]
+            ik_pose.pose.position.y = pos[1]
+            ik_pose.pose.position.z = pos[2]
+            ik_pose.pose.orientation.x = orn[0]
+            ik_pose.pose.orientation.y = orn[1]
+            ik_pose.pose.orientation.z = orn[2]
+            ik_pose.pose.orientation.w = orn[3]
+            ik_pose.header = hdr
+            ikreq.pose_stamp.append(ik_pose)
+
+            # print ikreq
+            try:
+                rospy.wait_for_service(ns, 5.0)
+                resp = iksvc(ikreq)
+                # print(resp)
+                limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
+                return limb_joints
+
+                #TODO: remove this line
+
+            except (rospy.ServiceException, rospy.ROSException), e:
+                rospy.logerr("Service call failed: %s" % (e,))
+                return 1
+            #
+            # # Check if result valid, and type of seed ultimately used to get solution
+            # # convert rospy's string representation of uint8[]'s to int's
+            # resp_seeds = struct.unpack('<%dB' % len(resp.result_type),
+            #                            resp.result_type)
+            # print resp_seeds
+            # if (resp_seeds[0] != resp.RESULT_INVALID):
+            #     seed_str = {
+            #                 ikreq.SEED_USER: 'User Provided Seed',
+            #                 ikreq.SEED_CURRENT: 'Current Joint Angles',
+            #                 ikreq.SEED_NS_MAP: 'Nullspace Setpoints',
+            #                }.get(resp_seeds[0], 'None')
+            #     print("SUCCESS - Valid Joint Solution Found from Seed Type: %s" %
+            #           (seed_str,))
+            #     # Format solution into Limb API-compatible dictionary
+            #     limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
+            #     print "\nIK Joint Solution:\n", limb_joints
+            #     print "------------------"
+            #     print "Response Message:\n", resp
+            # else:
+            #     print("INVALID POSE - No Valid Joint Solution Found.")
+            # # limb_interface.move_to_joint_positions(limb_joints)
+            # return limb_joints
 
     def euler_to_quat(self, orn):
         # TODO: replace this function
