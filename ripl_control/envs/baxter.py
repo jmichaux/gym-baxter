@@ -8,13 +8,13 @@ import numpy as np
 import rospy
 import baxter_interface
 from baxter_interface import CHECK_VERSION, Limb, Gripper
-# from pybullet_interface import Limb, Gripper
+# import baxter_pybullet_interface
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 # from utils import transforms
 
-import pybullet as p
+# import pybullet as p
 
 class CONTROL(IntEnum):
     # 0
@@ -37,7 +37,7 @@ class Baxter(object):
                  sim=False,
                  time_step=1.0,
                  control="position",
-                 state=None,
+                 state_type=STATE.EE_POSE,
                  rate=100.0,
                  missed_cmds=20000.0):
 
@@ -60,16 +60,6 @@ class Baxter(object):
             # set time step
             self.time_step = time_step
 
-            # create arm(s)
-            self.create_arms()
-
-            # create joint dictionaries
-            self.create_joint_dicts()
-
-            # specify state
-            self.current_state = None
-            self._robot_state = state
-
             # set joint command timeout and control rate
             self.rate = rate
             self.freq = 1 / rate
@@ -77,8 +67,18 @@ class Baxter(object):
             self.set_command_time_out()
             self.control_rate = rospy.Rate(self.rate)
 
-            # reset starting state of robot
-            self.reset()
+        # create arms
+        self.create_arms()
+
+        # create joint dictionaries
+        self.create_joint_dicts()
+
+        # state
+        self.state_type = state_type
+        self.state = self.get_state()
+
+        # reset robot
+        self.reset()
 
     def set_control(self, control):
         """
@@ -187,10 +187,8 @@ class Baxter(object):
 
     def get_state(self):
         """
-        Returns the current state of the robot
+        Returns the current state of the real or simulated robot
         """
-        if self._robot_state is None or self._robot_state == STATE.EE_POSITION:
-            return self.get_ee_position()
         if self._robot_state == STATE.EE_POSE:
             return self.get_ee_pose()
         if self._robot_state == STATE.JOINT_ANGLES:
@@ -204,10 +202,7 @@ class Baxter(object):
         """
         Update the current state of the robot
         """
-        if self.sim:
-            pass
-        else:
-            self.current_state = self.get_state()
+        self.state = self.get_state()
         return
 
     def move_to_ee_pose(self, pose, arm="right"):
@@ -460,7 +455,7 @@ class Baxter(object):
 
     def set_ready_position(self):
         """
-        Sets ready position for both arms
+        Set ready position for both arms.
         """
         if self.sim:
             # Initial pose for left and right arms
