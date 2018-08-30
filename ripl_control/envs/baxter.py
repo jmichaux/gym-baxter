@@ -23,6 +23,7 @@ class CONTROL(IntEnum):
     TORQUE = 1
     # 2 (Requires IK)
     POSITION = 2
+    # 3 (Requires IK)
     EE = 3 #TODO MAKE SURE THIS WORKS WITH PYBULLET
 
 class STATE(IntEnum):
@@ -243,7 +244,7 @@ class Baxter(object):
         self.state = self.get_state()
         return
 
-    def move_to_ee_pose(self, pose, arm="right", blocking=True):
+    def move_to_ee_pose(self, pose, arm=None, blocking=True):
         """
         Move end effector to specified pose
 
@@ -271,7 +272,7 @@ class Baxter(object):
                 self.right_arm.set_joint_positions(joints)
         return
 
-    def get_ee_pose(self, arm="right", mode=None):
+    def get_ee_pose(self, arm=None, mode=None):
         """
         Returns end effector pose for specified arm.
 
@@ -314,7 +315,7 @@ class Baxter(object):
         else:
             raise ValueError("Arg arm should be 'left' or 'right'.")
 
-    def get_ee_orientation(self, arm="right", mode=None):
+    def get_ee_orientation(self, arm=None, mode=None):
         """
         Returns a list of the orientations of the end effectors(s)
         Args
@@ -336,11 +337,41 @@ class Baxter(object):
             raise ValueError("Arg arm should be 'left' or 'right'.")
         return list(p.getEulerFromQuaternion(orn))
 
-    def get_joint_velocities(self, arm):
-        pass
+    def get_joint_velocities(self, arm=None):
+        """
+        Get joint velocites for specified arm
+        """
+        if self.sim:
+            pass
+        else:
+            if arm is None:
+                if self.num_arms == 2:
+                    raise ValueError("Must specify arg arm when both arms active.")
+                else:
+                    return self.arm.joint_velocities()
+            elif arm == "right":
+                return self.right_arm.joint_velocities()
+            elif arm == "left":
+                return self.left_arm.joint_velocities()
+        return
 
-    def get_joint_torques(self, arm):
-        pass
+    def get_joint_torques(self, arm=None):
+        """
+        Get joint torques for specified arm
+        """
+        if self.sim:
+            pass
+        else:
+            if arm is None:
+                if self.num_arms == 2:
+                    raise ValueError("Must specify arg arm when both arms active.")
+                else:
+                    return self.arm.joint_torques()
+            elif arm == "right":
+                return self.right_arm.joint_torques()
+            elif arm == "left":
+                return self.left_arm.joint_torques()
+        return
 
     def get_action_dimension(self):
         """
@@ -358,10 +389,11 @@ class Baxter(object):
             action - list or tuple specifying end effector pose(6DOF * num_arms)
                     or joint angles (7DOF * num_arms)
         """
+        # verify action
         verified, err = self._verify_action(action)
         if not verified:
             raise err
-
+        # execute action
         if self.control == CONTROL.POSITION:
             self._apply_position_control(action)
         elif self.control == CONTROL.EE:
@@ -436,7 +468,7 @@ class Baxter(object):
                 self.move_to_ee_pose(right_action, arm=self.right_arm.name, blocking=True)
         return
 
-    def calc_ik(self, ee_pose, arm):
+    def calc_ik(self, ee_pose, arm=None):
         """
         Calculate inverse kinematics for a given end effector pose
 
