@@ -641,25 +641,6 @@ class Baxter(object):
         # TODO: assert orn is right shape
         return p.getEulerFromQuaternion(orn)
 
-    def tuck_idle_arm(self):
-        if self.sim:
-            pass
-        else:
-            # tuck = {'left':  [-1.0, -2.07,  3.0, 2.55,  0.0, 0.01,  0.0],
-            #         'right':  [1.0, -2.07, -3.0, 2.55, -0.0, 0.01,  0.0]}
-            tuck = {'left':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0],
-                    'right':  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  0.0]}
-            angles = tuck[self._idle_arm.name]
-            positions = dict(zip(self._idle_arm.joint_names(), angles))
-            self._idle_arm.move_to_joint_positions(positions)
-
-    def untuck_idle_arm(self):
-        # untuck = {'left':  [-0.08, -1.0, -1.19, 1.94,  0.67, 1.03, -0.50],
-        #           'right':  [0.08, -1.0,  1.19, 1.94, -0.67, 1.03,  0.50]}
-        angles = [0.0, -0.55, 0.0, 0.75, 0.0, 1.26, 0.0]
-        positions = dict(zip(self._idle_arm.joint_names(), angles))
-        self._idle_arm.set_joint_positions(positions)
-
 if __name__ == "__main__":
     rospy.init_node("interface_test")
     baxter = Baxter("left", state=STATE.EE_POSE)
