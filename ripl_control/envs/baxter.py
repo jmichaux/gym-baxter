@@ -288,6 +288,9 @@ class Baxter(object):
         if arm is None:
             if self.num_arms == 2:
                 raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
+            else:
+                pos = self.get_ee_position(self.arm.name)
+                orn = self.get_ee_orientation(self.arm.name)
         else:
             pos = self.get_ee_position(arm)
             orn = self.get_ee_orientation(arm, mode)
@@ -484,7 +487,7 @@ class Baxter(object):
             if self.num_arms == 2:
                 raise ValueError("Must specify arg arm when both arms are active")
             else:
-                arm = self.arm.get_name()
+                arm = self.arm.name
         if self.sim:
             joints = self._sim_ik(ee_pose, arm)
         else:
