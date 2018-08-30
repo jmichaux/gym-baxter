@@ -14,7 +14,7 @@ from std_msgs.msg import Header
 from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 # from utils import transforms
 
-# import pybullet as p
+import pybullet as p
 
 class CONTROL(IntEnum):
     # 0
@@ -36,7 +36,7 @@ class Baxter(object):
     def __init__(self,
                  sim=False,
                  time_step=1.0,
-                 control="position",
+                 control="positDion",
                  arm="right",
                  state_type=STATE.EE_POSE,
                  rate=100.0,
@@ -61,6 +61,16 @@ class Baxter(object):
             # set time step
             self.time_step = time_step
 
+            # create arms
+            self.create_arms(arm)
+
+            # create joint dictionaries
+            self.create_joint_dicts()
+
+            # # state
+            self.state_type = state_type
+            self.state = self.get_state()
+
             # set joint command timeout and control rate
             self.rate = rate
             self.freq = 1 / rate
@@ -68,18 +78,8 @@ class Baxter(object):
             self.set_command_time_out()
             self.control_rate = rospy.Rate(self.rate)
 
-        # create arms
-        self.create_arms(arm)
-
-        # create joint dictionaries
-        self.create_joint_dicts()
-
-        # state
-        self.state_type = state_type
-        self.state = self.get_state()
-
-        # reset robot
-        self.reset()
+            # reset robot
+            self.reset()
 
     def set_control(self, control):
         """
@@ -91,8 +91,10 @@ class Baxter(object):
             self.control = CONTROL.POSITION
         elif control == "velocity" or control == CONTROL.VELOCITY:
             self.control = CONTROL.VELOCITY
-        else:
+        elif control == "torque" or control == CONTROL.TORQUE:
             self.control = CONTROL.TORQUE
+        else:
+            self.control = CONTROL.EE
         return
 
     def set_command_time_out(self):
@@ -114,7 +116,7 @@ class Baxter(object):
         # calibrate gripper
         self.calibrate_grippers()
         # update state
-        self.update_state()
+        # self.update_state()
 
     def _reset_sim(self):
         '''Load Baxter, table, and tray URDF'''
@@ -225,11 +227,11 @@ class Baxter(object):
         """
         Returns the current state of the real or simulated robot
         """
-        if self._robot_state == STATE.EE_POSE:
+        if self.state_type == STATE.EE_POSE:
             return self.get_ee_pose()
-        if self._robot_state == STATE.JOINT_ANGLES:
+        if self.state_type == STATE.JOINT_ANGLES:
             return self.get_joint_angles()
-        elif self._robot_state == STATE.JOINT_VELOCITIES:
+        elif self.state_type == STATE.JOINT_VELOCITIES:
             return self.get_joint_velocities()
         else:
             return self.get_joint_torques()
@@ -249,12 +251,19 @@ class Baxter(object):
             pose (list): [X, Y, Z, r, p, w]
             arm (string): "left" or "right"
         """
-        joints = self.calc_ik(pose)
+        joints = self.calc_ik(pose, arm)
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
+            if blocking:
+                self.arm.move_to_joint_positions(joints)
+            else:
+                self.arm.set_joint_positions(joint)
         if arm == "left":
             if blocking:
                 self.left_arm.move_to_joint_positions(joints)
             else:
-            self.left_arm.set_joint_positions(joints)
+                self.left_arm.set_joint_positions(joints)
         else:
             if blocking:
                 self.right_arm.move_to_joint_positions(joints)
@@ -275,15 +284,15 @@ class Baxter(object):
         Returns
             pose (list): Euler angles [X,Y,Z,r,p,w] or Quaternion [X,Y,Z,x,y,z,w]
         """
-        if arm == "left":
-            pos = self.get_ee_position("left")
-            orn = self.get_ee_orientation("left", mode=mode)
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
         else:
-            pos = self.get_ee_position("right")
-            orn = self.get_ee_orientation("right", mode=mode)
+            pos = self.get_ee_position(arm)
+            orn = self.get_ee_orientation(arm, mode)
         return pos + orn
 
-    def get_ee_position(self, arm="right"):
+    def get_ee_position(self, arm=None):
         """
         Returns end effector position for specified arm.
 
@@ -293,10 +302,17 @@ class Baxter(object):
         Returns
             [X,Y,Z]
         """
-        if arm == "left":
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
+            else:
+                return list(self.arm.endpoint_pose()['position'])
+        elif arm == "left":
             return list(self.left_arm.endpoint_pose()['position'])
         elif arm == "right":
             return list(self.right_arm.endpoint_pose()['position'])
+        else:
+            raise ValueError("Arg arm should be 'left' or 'right'.")
 
     def get_ee_orientation(self, arm="right", mode=None):
         """
@@ -307,48 +323,18 @@ class Baxter(object):
         Returns
             orn (list): list of Euler angles or Quaternion
         """
-        if arm == "left":
-            orn = self._left_ee_orientation()
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms,")
+            else:
+                orn = list(self.arm.endpoint_pose()['orientation'])
+        elif arm == "left":
+            orn = list(self.left_arm.endpoint_pose()['orientation'])
+        elif arm == "right":
+            orn = list(self.right_arm.endpoint_pose()['orientation'])
         else:
-            orn = self._right_ee_orientation()
-        if mode in ["Quaternion", "quaternion", "quat"]:
-                return orn
-        else:
-            return list(p.getEulerFromQuaternion(orn))
-
-    def _left_ee_position(self):
-        """
-        Returns the position of the left end effector
-        """
-        if self.sim:
-            pass
-        else:
-            return list(self.left_arm.endpoint_pose()['position'])
-
-    def _right_ee_position(self):
-        """
-        Returns the position of the right end effector
-        """
-        if self.sim:
-            pass
-        return list(self.right_arm.endpoint_pose()['position'])
-
-    def _left_ee_orientation(self):
-        """
-        Returns the orientation of the left end effector
-        """
-        if self.sim:
-            pass
-        else:
-            return list(self.left_arm.endpoint_pose()['orientation'])
-
-    def _right_ee_orientation(self):
-        """
-        Returns the orientation of the right end effector
-        """
-        if self.sim:
-            pass
-        return list(self.right_arm.endpoint_pose()['orientation'])
+            raise ValueError("Arg arm should be 'left' or 'right'.")
+        return list(p.getEulerFromQuaternion(orn))
 
     def get_joint_velocities(self, arm):
         pass
@@ -445,18 +431,31 @@ class Baxter(object):
             pass
         else:
             if self.num_arms == 1:
-                self.move_to_ee_pose(action, arm=self.arm.get_name(), blocking=True)
+                self.move_to_ee_pose(action, arm=self.arm.name, blocking=True)
             else:
                 left_action = action[:self.dof]
                 right_action = action[self.dof:]
-                self.move_to_ee_pose(left_action, arm=self.left_arm.get_name(), blocking=False)
-                self.move_to_ee_pose(right_action, arm=self.right_arm.get_name(), blocking=True)
+                self.move_to_ee_pose(left_action, arm=self.left_arm.name, blocking=False)
+                self.move_to_ee_pose(right_action, arm=self.right_arm.name, blocking=True)
         return
 
-    def calc_ik(self, ee_pose, arm"):
+    def calc_ik(self, ee_pose, arm):
         """
         Calculate inverse kinematics for a given end effector pose
+
+        Args
+            ee_pose (list or tuple of floats): 6 dimensional array specifying
+                the position and orientation of the end effector
+            arm (string): "right" or "left"
+
+        Return
+            joints (list): A list of joint angles
         """
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm when both arms are active")
+            else:
+                arm = self.arm.get_name()
         if self.sim:
             joints = self._sim_ik(ee_pose, arm)
         else:
@@ -510,7 +509,6 @@ class Baxter(object):
         ik_pose.pose.orientation.w = orn[3]
         ik_pose.header = hdr
         ikreq.pose_stamp.append(ik_pose)
-
         try:
             rospy.wait_for_service(ns, 5.0)
             resp = iksvc(ikreq)
@@ -630,13 +628,8 @@ class Baxter(object):
                 p.resetJointState(self.baxter_id, joint_index, joint_val)
                 p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
         else:
-            angles = [0.0, -0.55, 0.0, 0.75, 0.0, 1.26, 0.0]
-            # left arm
-            l_position = dict(zip(self.left_arm.joint_names(), angles))
-            self.left_arm.set_joint_positions(l_position)
-            # right arm
-            r_position = dict(zip(self.right_arm.joint_names(), angles))
-            self.right_arm.move_to_joint_positions(r_position)
+            self.right_arm.move_to_neutral()
+            self.left_arm.move_to_neutral()
         return
 
     def euler_to_quat(self, orn):
@@ -666,8 +659,6 @@ class Baxter(object):
         angles = [0.0, -0.55, 0.0, 0.75, 0.0, 1.26, 0.0]
         positions = dict(zip(self._idle_arm.joint_names(), angles))
         self._idle_arm.set_joint_positions(positions)
-
-
 
 if __name__ == "__main__":
     rospy.init_node("interface_test")
