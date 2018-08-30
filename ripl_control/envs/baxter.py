@@ -346,7 +346,7 @@ class Baxter(object):
         """
         Returns size of action
         """
-        return self.dof
+        return self.dof * self.num_arms
 
     def apply_action(self, action):
         """
