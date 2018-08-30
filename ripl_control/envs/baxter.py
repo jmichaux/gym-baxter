@@ -384,12 +384,9 @@ class Baxter(object):
         # assert action is a list or tuple
         if not isinstance(action, (list, tuple)):
             return False, TypeError("Action must be a list or tuple.")
-        if self.control == CONTROL.EE:
-            if len(action) != 6*self.num_arms:
-                return False, ValueError("Action must have len {}".format(6*self.num_arms))
-        else:
-            if len(action) != 7*self.num_arms:
-                return False, ValueError("Action must have len {}".format(7*self.num_arms))
+        # check action has right size
+        if len(action) != self.dof*self.num_arms:
+            return False, ValueError("Action must have len {}".format(self.dof*self.num_arms))
         return True, ""
 
     def clip_action(self):
