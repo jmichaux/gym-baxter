@@ -342,7 +342,7 @@ class Baxter(object):
     def get_joint_torques(self, arm):
         pass
 
-    def action_dimension(self):
+    def get_action_dimension(self):
         """
         Returns size of action
         """
