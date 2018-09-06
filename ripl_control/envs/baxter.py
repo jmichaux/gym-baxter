@@ -369,11 +369,11 @@ class Baxter(object):
                 if self.num_arms == 2:
                     raise ValueError("Must specify arg arm when both arms active.")
                 else:
-                    return self.arm.joint_torques()
+                    return self.arm.joint_efforts()
             elif arm == "right":
-                return self.right_arm.joint_torques()
+                return self.right_arm.joint_efforts()
             elif arm == "left":
-                return self.left_arm.joint_torques()
+                return self.left_arm.joint_effort()
         return
 
     def get_action_dimension(self):
@@ -492,6 +492,8 @@ class Baxter(object):
             joints = self._sim_ik(ee_pose, arm)
         else:
             joints = self._real_ik(ee_pose, arm)
+        if not joints:
+            print("IK failed. Try running again or changing the pose.")
         return joints
 
     def _sim_ik(self, ee_pose, arm):
