@@ -37,7 +37,7 @@ class Baxter(object):
     def __init__(self,
                  sim=False,
                  time_step=1.0,
-                 control="positDion",
+                 control="position",
                  arm="right",
                  state_type=STATE.EE_POSE,
                  rate=100.0,
@@ -424,7 +424,7 @@ class Baxter(object):
             return False, ValueError("Action must have len {}".format(self.dof*self.num_arms))
         return True, ""
 
-    def clip_action(self):
+    def _clip_action(self, action):
         pass
 
     def _apply_position_control(self, action):
