@@ -30,7 +30,7 @@ class BaxterReacherEnv(gym.Env):
             # initialize ros node
             rospy.init_node("reacher_env")
         # create baxter
-        self.baxter = Baxter(sim=self.sim, arms=self.arms)
+        self.baxter = Baxter(sim=self.sim, arm=self.arms)
         # reset environment
         # self.reset()
         # set max time steps
@@ -81,11 +81,11 @@ class BaxterReacherEnv(gym.Env):
 
     @property
     def action_space(self):
-        return Box(-np.inf, np.inf, (self.baxter.num_joints,))
+        return Box(-np.inf, np.inf, (self.baxter.get_action_dimension(),))
 
     @property
     def observation_space(self):
-        return Box(-np.inf, np.inf, (self.baxter.num_joints + len(self.goal),))
+        return Box(-np.inf, np.inf, (self.baxter.get_action_dimension() + len(self.goal),))
 
     def _sample_goal(self):
         #TODO: reimplement so that the goal is chosen
