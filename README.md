@@ -29,4 +29,4 @@ Baxter SDK \
 - [ ] HuskyUR5PickPlaceEnv
 
 ### Gazebo
-- [ ] Add Gazebo as a backend for those that may want it
+- [ ] Add Gazebo as a backend for those who may want it
