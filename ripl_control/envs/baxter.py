@@ -17,27 +17,24 @@ from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 import pybullet as p
 
 class CONTROL(IntEnum):
-    # 0
     VELOCITY = 0
-    # 1
     TORQUE = 1
-    # 2 (Requires IK)
-    POSITION = 2
-    # 3 (Requires IK)
-    EE = 3 #TODO MAKE SURE THIS WORKS WITH PYBULLET
+    POSITION = 2 # Requires IK
+    EE = 3 # Requires IK (TODO MAKE SURE THIS WORKS WITH PYBULLET)
 
 class STATE(IntEnum):
     JOINT_VELOCITIES = 0
     JOINT_TORQUES = 1
     JOINT_ANGLES = 2
     EE_POSE = 3
-    PIXELS = 4
+    EE_POSITION = 4
+    PIXELS = 5
 
 class Baxter(object):
     def __init__(self,
                  sim=False,
                  time_step=1.0,
-                 control="position",
+                 control=CONTROL.POSITION,
                  arm="right",
                  state_type=STATE.EE_POSE,
                  rate=100.0,
@@ -61,17 +58,13 @@ class Baxter(object):
         else:
             # set time step
             self.time_step = time_step
-
             # create arms
             self.create_arms(arm)
-
             # create joint dictionaries
             self.create_joint_dicts()
-
-            # # state
-            self.state_type = state_type
+            # state
+            self.state_type = self.set_state_type(state_type)
             self.state = self.get_state()
-
             # set joint command timeout and control rate
             self.rate = rate
             self.freq = 1 / rate
@@ -79,16 +72,12 @@ class Baxter(object):
             self.set_command_time_out()
             self.control_rate = rospy.Rate(self.rate)
 
-            # reset robot
-            self.reset()
-
     def set_control(self, control):
         """
         Sets the control type for Baxter in simulation or the real robot
         Args: control - string or int
-
         """
-        if control == "position" or control == CONTROL.POSITION or control == None:
+        if control in ["position", "joint_positions", "joint_angles", CONTROL.POSITION]  or control == None:
             self.control = CONTROL.POSITION
         elif control == "velocity" or control == CONTROL.VELOCITY:
             self.control = CONTROL.VELOCITY
@@ -224,18 +213,37 @@ class Baxter(object):
     def shutdown(self):
         pass
 
-    def get_state(self):
+    def get_state(self, arm=None):
         """
         Returns the current state of the real or simulated robot
         """
-        if self.state_type == STATE.EE_POSE:
-            return self.get_ee_pose()
-        if self.state_type == STATE.JOINT_ANGLES:
-            return self.get_joint_angles()
-        elif self.state_type == STATE.JOINT_VELOCITIES:
-            return self.get_joint_velocities()
+        if self.state_type == STATE.EE_POSE or self.state_type == 'ee_pose':
+            return self.get_ee_pose(arm)
+        if self.state_type == STATE.EE_POSITION or self.state_type == 'ee_position':
+            return self.get_ee_position(arm)
+        if self.state_type == STATE.JOINT_ANGLES or self.state_type in ['joint_angles', 'joint_positions']:
+            return self.get_joint_angles(arm)
+        elif self.state_type == STATE.JOINT_VELOCITIES or self.state_type == 'joint_velocities':
+            return self.get_joint_velocities(arm)
         else:
-            return self.get_joint_torques()
+            return self.get_joint_torques(arm)
+
+    def set_state_type(self, state_type):
+        """
+        Returns the current state of the real or simulated robot
+        """
+        if state_type == STATE.EE_POSE or state_type == 'ee_pose':
+            return STATE.EE_POSE
+        if state_type == STATE.EE_POSITION or state_type == 'ee_position':
+            return STATE.EE_POSITION
+        if state_type == STATE.JOINT_ANGLES or state_type in ['joint_angles', 'joint_positions']:
+            return STATE.JOINT_ANGLES
+        elif state_type == STATE.JOINT_VELOCITIES or state_type == 'joint_velocities':
+            return STATE.JOINT_VELOCITIES
+        elif state_type == STATE.JOINT_TORQUES or state_type == 'joint_torques':
+            return STATE.JOINT_TORQUES
+        else:
+            raise ValueError('State type not recognized')
 
     def update_state(self):
         """
@@ -581,7 +589,10 @@ class Baxter(object):
         if self.sim:
             pass
         else:
-            joints = self.left_arm.joint_names() + self.right_arm.joint_names()
+            if self.num_arms == 1:
+                joints = self.arm.joint_names()
+            else:
+                joints = self.left_arm.joint_names() + self.right_arm.joint_names()
             inds = range(len(joints))
             joint_dict = dict(zip(inds, joints))
         return joint_dict
@@ -677,4 +688,5 @@ class Baxter(object):
 
 if __name__ == "__main__":
     rospy.init_node("interface_test")
-    baxter = Baxter("left", state=STATE.EE_POSE)
+    baxter = Baxter()
+    baxter.reset()
