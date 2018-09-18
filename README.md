@@ -11,22 +11,22 @@ Baxter SDK \
 
 ## TODO
 ### Baxter environments
-- [] BaxterReacherEnv (in progress)
-- [] BaxterPusherEnv (in progress)
-- [] BaxterSliderEnv (in progress)
-- [] BaxterPickPlaceEnv (in progress)
+- [ ] BaxterReacherEnv (in progress)
+- [ ] BaxterPusherEnv (in progress)
+- [ ] BaxterSliderEnv (in progress)
+- [ ] BaxterPickPlaceEnv (in progress)
 
 ### UR5 environments
-- [] UR5ReacherEnv
-- [] UR5PusherEnv
-- [] UR5SliderEnv
-- [] UR5PickPlaceEnv
+- [ ] UR5ReacherEnv
+- [ ] UR5PusherEnv
+- [ ] UR5SliderEnv
+- [ ] UR5PickPlaceEnv
 
 ### Husky/UR5 environments
-- [] HuskyUR5ReacherEnv
-- [] HuskyUR5PusherEnv
-- [] HuskyUR5SliderEnv
-- [] HuskyUR5PickPlaceEnv
+- [ ] HuskyUR5ReacherEnv
+- [ ] HuskyUR5PusherEnv
+- [ ] HuskyUR5SliderEnv
+- [ ] HuskyUR5PickPlaceEnv
 
 ### Gazebo
-- [] Add Gazebo as a backend for those that may want it
+- [ ] Add Gazebo as a backend for those that may want it
