@@ -1,1 +1,1 @@
-from ripl_control.envs.baxter_envs.baxter_reacher_env import BaxterReacherEnv
+from ripl_control.envs.baxter_envs.reach import BaxterReacherEnv
