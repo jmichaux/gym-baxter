@@ -3,7 +3,7 @@ import pybullet as p
 
 class Limb(object):
     """
-    PyBullet interface class for a limb on the Baxter robot.
+    PyBullet interface class that mimics the Limb class from baxter_interface.limb.
     """
     def __init__(self, robot_id, name):
         # set robot id
@@ -46,31 +46,6 @@ class Limb(object):
                               40 : 'left_w1',
                               41 : 'left_w2'}
 
-
-              # right arm
-              [12, 0.00],
-              [13, -0.55],
-              [14, 0.00],
-              [15, 0.75],
-              [16, 0.00],
-              [18, 1.26],
-              [19, 0.00],
-              # right gripper
-              [27, -0.0052],
-              [29, -0.0052],
-              # left arm
-              [34, 0.00],
-              [35, -0.55],
-              [36, 0.00],
-              [37, 0.75],
-              [38, 0.00],
-              [40, 1.26],
-              [41, 0.00],
-              # left gripper
-              [49, -0.0052],
-              [51, -0.0052]]
-
-
     def joint_names(self):
         return self.pb_to_ros.values()
 
@@ -112,17 +87,29 @@ class Limb(object):
         return {'orientation': list(orn), 'position': list(pos)}
 
     def endpoint_velocity(self):
-        # return deepcopy(self._cartesian_velocity)
+        """
+        Cartesian velocity
+        """
         return
 
     def endpoint_effort(self):
-        # return deepcopy(self._cartesian_effort)
+        """
+        Cartesian effort
+        """
         return
 
     def set_joint_position_speed(self, speed):
+        # This might not  be necessary
         return
 
-    def set_joint_positions(self, positions, raw=False):
+    def set_joint_positions(self, joints_dict, control_type,
+                                max_force, max_vel, pos_gain, vel_gain):
+        """
+        This is kinda silly, but it matches the syntax in baxter.py
+        in order to execute control commands for both arms simultaneously.
+        """
+        self.move_to_joint_positions(joints_dict, control_type,
+                                    max_force, max_vel, pos_gain, vel_gain)
         return
 
     def set_joint_velocities(self, joints_dict, control_type,
