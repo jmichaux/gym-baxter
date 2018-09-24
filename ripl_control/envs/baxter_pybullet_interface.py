@@ -6,13 +6,11 @@ class Limb(object):
     PyBullet interface class that mimics the Limb class from baxter_interface.limb.
     """
     def __init__(self, robot_id, name):
-        # set robot id
         self.robot_id = robot_id
-        self.joints = self.init_joints()
-        self.name = name
+        self.name = name # right or left
 
         if self.name == 'right':
-            self._ee_index = 26
+            self.ee_index = 26
             self.ros_to_pb = {'right_s0' : 12,
                               'right_s1' : 13,
                               'right_e0' : 14,
@@ -29,7 +27,7 @@ class Limb(object):
                               18 : 'right_w1',
                               19 : 'right_w2'}
         else:
-            self._ee_index = 48
+            self.ee_index = 48
             self.ros_to_pb = {'left_s0' : 12,
                               'left_s1' : 13,
                               'left_e0' : 14,
@@ -45,6 +43,7 @@ class Limb(object):
                               38 : 'left_w0',
                               40 : 'left_w1',
                               41 : 'left_w2'}
+        self.joint_indices = self.pb_to_ros.keys()
 
     def joint_names(self):
         return self.pb_to_ros.values()

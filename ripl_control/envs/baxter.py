@@ -13,14 +13,14 @@ from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 # from utils import transforms
-
 import pybullet as p
+import baxter_pybullet_interface as pybullet_interface
 
 class CONTROL(IntEnum):
     VELOCITY = 0
     TORQUE = 1
-    POSITION = 2 # Requires IK
-    EE = 3 # Requires IK (TODO MAKE SURE THIS WORKS WITH PYBULLET)
+    POSITION = 2
+    EE = 3
 
 class STATE(IntEnum):
     JOINT_VELOCITIES = 0
@@ -41,10 +41,12 @@ class Baxter(object):
                  missed_cmds=20000.0):
 
         self.set_control(control)
+        self.state_type = state_type
         self.sim = sim
+        self.arm_name = arm
 
         if self.sim:
-            self.baxter_path =  os.path.expanduser("~") + baxter_path
+            self.baxter_urdf =  "/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
             self.time_step = time_step
             # values taken from
             # http://sdk.rethinkrobotics.com/wiki/Hardware_Specifications#Peak_Torque
@@ -56,21 +58,9 @@ class Baxter(object):
             self.right_finger_force = 0
             self.finger_tip_force = 0.
         else:
-            # set time step
-            self.time_step = time_step
-            # create arms
-            self.create_arms(arm)
-            # create joint dictionaries
-            self.create_joint_dicts()
-            # state
-            self.state_type = self.set_state_type(state_type)
-            self.state = self.get_state()
-            # set joint command timeout and control rate
             self.rate = rate
             self.freq = 1 / rate
             self.missed_cmds = missed_cmds
-            self.set_command_time_out()
-            self.control_rate = rospy.Rate(self.rate)
 
     def set_control(self, control):
         """
@@ -95,8 +85,17 @@ class Baxter(object):
     def reset(self):
         if self.sim:
             self._reset_sim()
+            self.create_arms()
         else:
+            self.create_arms()
+            # set joint command timeout and control rate
+            self.set_command_time_out()
+            self.control_rate = rospy.Rate(self.rate)
             self._reset_real()
+        # create joint dictionaries
+        self.create_joint_dicts()
+        # state
+        self.state = self.get_state()
 
     def _reset_real(self):
         # enable robot
@@ -109,15 +108,14 @@ class Baxter(object):
         # self.update_state()
 
     def _reset_sim(self):
-        '''Load Baxter, table, and tray URDF'''
+        '''Load Baxter URDF'''
         # Load assets for Baxter
-        objects = [p.loadURDF(baxter_path, [0.00000,0.000000, 1.00000,], useFixedBase=True)]
-        # objects = [p.loadURDF("table/table.urdf", 1.000000,-0.200000,0.000000,0.000000,0.000000,0.707107,0.707107)]
+        objects = [p.loadURDF(self.baxter_urdf, [0.00000,0.000000, 1.00000,], useFixedBase=True)]
         self.baxter_id = objects[0]
         self.num_joints = p.getNumJoints(self.baxter_id)
 
         # move arms to ready position
-        self.set_ready_position()
+        # self.set_ready_position()
 
         # Get pose of end effectors
         self.left_ee_pos, self.left_ee_angle = self.get_ee_pose(end_effector="left")
@@ -140,7 +138,7 @@ class Baxter(object):
         # joint damping coefficients
         self.jd = None
 
-    def create_arms(self, arm):
+    def create_arms(self):
         """
         Create arm interface objects for Baxter.
 
@@ -149,11 +147,11 @@ class Baxter(object):
         Args
             arm (str): "right", "left", "both"
         """
-        if arm not in ["right", "left", "both"]:
+        if self.arm_name not in ["right", "left", "both"]:
             raise ValueError("You must specify arm must as 'left', 'right', or 'both'")
 
         # number of arms
-        if arm == "both":
+        if self.arm_name == "both":
             self.num_arms = 2
         else:
             self.num_arms = 1
@@ -175,12 +173,12 @@ class Baxter(object):
             self.right_arm = Limb("right")
             self.right_arm.gripper = Gripper("right")
 
-            if arm == "right":
-                self.arm = self.right_arm
-                self.arm.gripper = self.right_arm.gripper
-            elif arm == "left":
-                self.arm = self.left_arm
-                self.arm.gripper = self.left_arm.gripper
+        if self.arm_name == "right":
+            self.arm = self.right_arm
+            self.arm.gripper = self.right_arm.gripper
+        elif self.arm_name == "left":
+            self.arm = self.left_arm
+            self.arm.gripper = self.left_arm.gripper
         return
 
     def calc_dof(self):
@@ -260,7 +258,7 @@ class Baxter(object):
             pose (list): [X, Y, Z, r, p, w]
             arm (string): "left" or "right"
         """
-        joints = self.calc_ik(pose, arm)
+        joints = self.calc_ik(pose, arm) # dict
         if arm is None:
             if self.num_arms == 2:
                 raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
@@ -348,40 +346,62 @@ class Baxter(object):
             raise ValueError("Arg arm should be 'left' or 'right'.")
         return list(p.getEulerFromQuaternion(orn))
 
+    def get_joint_angles(self, arm=None):
+        """
+        Get joint angles for specified arm
+
+        Args
+            arm(strin): "right" or "left"
+
+        Returns
+            joint_angles (list): List of joint angles starting from the right_s0 ('right_upper_shoulder')
+                and going down the kinematic tree to the end effector.
+        """
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm when both arms active.")
+            else:
+                joint_angles = self.arm.joint_angles().values()
+        elif arm == "left":
+            joint_angles = self.left_arm.joint_angles().values()
+        elif arm == "right":
+            joint_angles = self.right_arm.joint_angles().values()
+        else:
+            raise ValueError("Arg arm should be 'left' or 'right'.")
+        return joint_angles
+
     def get_joint_velocities(self, arm=None):
         """
         Get joint velocites for specified arm
         """
-        if self.sim:
-            pass
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm when both arms active.")
+            else:
+                return self.arm.joint_velocities()
+        elif arm == "right":
+            return self.right_arm.joint_velocities()
+        elif arm == "left":
+            return self.left_arm.joint_velocities()
         else:
-            if arm is None:
-                if self.num_arms == 2:
-                    raise ValueError("Must specify arg arm when both arms active.")
-                else:
-                    return self.arm.joint_velocities()
-            elif arm == "right":
-                return self.right_arm.joint_velocities()
-            elif arm == "left":
-                return self.left_arm.joint_velocities()
+            raise ValueError("Arg arm should be 'left' or 'right'.")
         return
 
     def get_joint_torques(self, arm=None):
         """
         Get joint torques for specified arm
         """
-        if self.sim:
-            pass
+        if arm is None:
+            if self.num_arms == 2:
+                raise ValueError("Must specify arg arm when both arms active.")
+            else:
+                return self.arm.joint_efforts()
+        elif arm == "right":
+            return self.right_arm.joint_efforts()
+        elif arm == "left":
+            return self.left_arm.joint_effort()
         else:
-            if arm is None:
-                if self.num_arms == 2:
-                    raise ValueError("Must specify arg arm when both arms active.")
-                else:
-                    return self.arm.joint_efforts()
-            elif arm == "right":
-                return self.right_arm.joint_efforts()
-            elif arm == "left":
-                return self.left_arm.joint_effort()
+            raise ValueError("Arg arm should be 'left' or 'right'.")
         return
 
     def get_action_dimension(self):
@@ -442,22 +462,18 @@ class Baxter(object):
             action - list or array of joint angles
         Blocking when moving the arm
         """
-        # TODO: check that action is of right type
-        if self.sim:
-            pass
+        if self.num_arms == 1:
+            action_dict = self.create_action_dict(action)
+            # blocking
+            self.arm.move_to_joint_positions(action_dict)
         else:
-            if self.num_arms == 1:
-                action_dict = self.create_action_dict(action)
-                # blocking
-                self.arm.move_to_joint_positions(action_dict)
-            else:
-                action_dict = self.create_action_dict(action)
-                l_action_dict, r_action_dict = self.parse_action_dict(action_dict)
-                # not blocking
-                self.left_arm.set_joint_positions(l_action_dict)
-                # blocking
-                self.right_arm.move_to_joint_positions(r_action_dict)
-            self.update_state()
+            action_dict = self.create_action_dict(action)
+            l_action_dict, r_action_dict = self.parse_action_dict(action_dict)
+            # not blocking
+            self.left_arm.set_joint_positions(l_action_dict)
+            # blocking
+            self.right_arm.move_to_joint_positions(r_action_dict)
+        self.update_state()
         return
 
     def _apply_ee_control(self, action):
@@ -508,7 +524,6 @@ class Baxter(object):
         """
         (Sim) Calculate inverse kinematics for a given end effector pose
 
-
         Args:
             ee_pose (tuple or list): [pos, orn] of desired end effector pose
                 pos - x,y,z
@@ -517,9 +532,24 @@ class Baxter(object):
         Returns:
             joint_angles (list): List of joint angles
         """
-        #TODO:
-        #Assert that the correct joint angles change
-        pass
+        if arm == 'right':
+            ee_index = self.right_arm.ee_index
+        else:
+            ee_index = self.left_arm.ee_index
+        pos = ee_pose[:3]
+        orn = ee_pose[3:]
+        if (self.useNullSpace==1):
+            if (self.useOrientation==1):
+                joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos, orn, self.ll, self.ul, self.jr, self.rp)
+            else:
+                joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos, lowerLimits=self.ll, upperLimits=self.ul, jointRanges=self.jr, restPoses=self.rp)
+        else:
+            if (self.useOrientation==1):
+                joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos, orn,jointDamping=self.jd)
+            else:
+                joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos)
+
+        return joints
 
     def _real_ik(self, ee_pose, arm):
         """
@@ -561,19 +591,9 @@ class Baxter(object):
             return
 
     def _apply_velocity_control(self, action):
-        # TODO: check that action is of right type
-        if self.sim:
-            pass
-        else:
-            pass
         return
 
     def _apply_torque_control(self, action):
-        # TODO: check that action is of right type
-        if self.sim:
-            pass
-        else:
-            pass
         return
 
     def create_joint_dicts(self):
@@ -644,34 +664,34 @@ class Baxter(object):
         """
         if self.sim:
             # Initial pose for left and right arms
-            initial_pose = [
-              # right arm
-              [12, 0.00],
-              [13, -0.55],
-              [14, 0.00],
-              [15, 0.75],
-              [16, 0.00],
-              [18, 1.26],
-              [19, 0.00],
-              # right gripper
-              [27, -0.0052],
-              [29, -0.0052],
-              # left arm
-              [34, 0.00],
-              [35, -0.55],
-              [36, 0.00],
-              [37, 0.75],
-              [38, 0.00],
-              [40, 1.26],
-              [41, 0.00],
-              # left gripper
-              [49, -0.0052],
-              [51, -0.0052]]
-
-            # set position of arms
-            for joint_index, joint_val in initial_pose:
-                p.resetJointState(self.baxter_id, joint_index, joint_val)
-                p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
+            # initial_pose = [
+            #   # right arm
+            #   [12, 0.00],
+            #   [13, -0.55],
+            #   [14, 0.00],
+            #   [15, 0.75],
+            #   [16, 0.00],
+            #   [18, 1.26],
+            #   [19, 0.00],
+            #   # right gripper
+            #   [27, -0.0052],
+            #   [29, -0.0052],
+            #   # left arm
+            #   [34, 0.00],
+            #   [35, -0.55],
+            #   [36, 0.00],
+            #   [37, 0.75],
+            #   [38, 0.00],
+            #   [40, 1.26],
+            #   [41, 0.00],
+            #   # left gripper
+            #   [49, -0.0052],
+            #   [51, -0.0052]]
+            #
+            # # set position of arms
+            # for joint_index, joint_val in initial_pose:
+            #     p.resetJointState(self.baxter_id, joint_index, joint_val)
+            #     p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
         else:
             self.right_arm.move_to_neutral()
             self.left_arm.move_to_neutral()
