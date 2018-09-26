@@ -1,5 +1,3 @@
-from ripl_control.envs.baxter_envs.reach import BaxterReacherEnv
-
 from gym.envs.registration import registry, register, make, spec
 
 register(
