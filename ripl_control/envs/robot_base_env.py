@@ -9,14 +9,11 @@ from gym import error, spaces
 from gym.utils import seeding
 
 class RobotBaseEnv(gym.GoalEnv):
-    def __init__(self, sim, n_actions, n_substeps):
-        self.sim = sim
-
+    def __init__(self, n_actions, n_substeps):
         self.seed()
         self.goal = self._sample_goal()
-        obs = self._get_obs()
-        self.action_space = 0
-        self.observation_space = 0
+        self.action_space = self._set_action_space()
+        self.observation_space = self._set_observation_space()
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -36,10 +33,20 @@ class RobotBaseEnv(gym.GoalEnv):
     def reset(self):
         """Resets the environment
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def _get_obs(self):
         """Returns the observation.
+        """
+        raise NotImplementedError()
+
+    def _set_observation_space(self):
+        """Returns the observation space
+        """
+        raise NotImplementedError()
+
+    def _set_action_space(self):
+        """Returns the action space
         """
         raise NotImplementedError()
 
