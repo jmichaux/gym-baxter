@@ -11,6 +11,9 @@ from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 
+# TODO: implement transforms and remove this import
+import pybullet as p
+
 class CONTROL(IntEnum):
     VELOCITY = 0
     TORQUE = 1
@@ -20,14 +23,13 @@ class CONTROL(IntEnum):
 class Baxter(object):
     def __init__(self,
                  sim=False,
-                 time_step=1.0,
-                 control=CONTROL.EE,
                  arm="right",
+                 control=CONTROL.EE,
+                 time_step=1.0,
                  rate=100.0,
                  missed_cmds=20000.0):
 
         self.set_control(control)
-        self.state_type = state_type
         self.sim = sim
         self.arm_name = arm
         # number of arms
@@ -89,8 +91,7 @@ class Baxter(object):
             self._reset_real()
         # create joint dictionaries
         self.create_joint_dicts()
-        # state
-        self.state = self.get_state()
+
 
     def _reset_real(self):
         # enable robot
@@ -196,20 +197,6 @@ class Baxter(object):
 
     def shutdown(self):
         pass
-
-    def get_state(self, arm=None):
-        """
-        Returns the current state of the real or simulated robot
-        """
-        if
-        return self.get_ee_pose() + self.get_joint_angles()
-
-    def update_state(self):
-        """
-        Update the current state of the robot
-        """
-        self.state = self.get_state()
-        return
 
     def move_to_ee_pose(self, pose, arm=None, blocking=True):
         """
