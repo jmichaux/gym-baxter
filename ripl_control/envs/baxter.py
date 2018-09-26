@@ -34,7 +34,7 @@ class Baxter(object):
     def __init__(self,
                  sim=False,
                  time_step=1.0,
-                 control=CONTROL.POSITION,
+                 control=CONTROL.EE,
                  arm="right",
                  state_type=STATE.EE_POSE,
                  rate=100.0,
@@ -44,6 +44,13 @@ class Baxter(object):
         self.state_type = state_type
         self.sim = sim
         self.arm_name = arm
+        # number of arms
+        if self.arm_name == "both":
+            self.num_arms = 2
+        else:
+            self.num_arms = 1
+        # number of degrees of freedom
+        self.dof = self.calc_dof()
 
         if self.sim:
             self.baxter_urdf =  "/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
@@ -150,15 +157,6 @@ class Baxter(object):
         if self.arm_name not in ["right", "left", "both"]:
             raise ValueError("You must specify arm must as 'left', 'right', or 'both'")
 
-        # number of arms
-        if self.arm_name == "both":
-            self.num_arms = 2
-        else:
-            self.num_arms = 1
-
-        # number of degrees of freedom
-        self.dof = self.calc_dof()
-
         # create arm objects
         if self.sim:
             self.left_arm = pybullet_interface.Limb(self.baxter_id, "left")
@@ -211,20 +209,27 @@ class Baxter(object):
     def shutdown(self):
         pass
 
+    # def get_state(self, arm=None):
+    #     """
+    #     Returns the current state of the real or simulated robot
+    #     """
+    #     if self.state_type == STATE.EE_POSE or self.state_type == 'ee_pose':
+    #         return self.get_ee_pose(arm)
+    #     if self.state_type == STATE.EE_POSITION or self.state_type == 'ee_position':
+    #         return self.get_ee_position(arm)
+    #     if self.state_type == STATE.JOINT_ANGLES or self.state_type in ['joint_angles', 'joint_positions']:
+    #         return self.get_joint_angles(arm)
+    #     elif self.state_type == STATE.JOINT_VELOCITIES or self.state_type == 'joint_velocities':
+    #         return self.get_joint_velocities(arm)
+    #     else:
+    #         return self.get_joint_torques(arm)
+
     def get_state(self, arm=None):
         """
         Returns the current state of the real or simulated robot
         """
-        if self.state_type == STATE.EE_POSE or self.state_type == 'ee_pose':
-            return self.get_ee_pose(arm)
-        if self.state_type == STATE.EE_POSITION or self.state_type == 'ee_position':
-            return self.get_ee_position(arm)
-        if self.state_type == STATE.JOINT_ANGLES or self.state_type in ['joint_angles', 'joint_positions']:
-            return self.get_joint_angles(arm)
-        elif self.state_type == STATE.JOINT_VELOCITIES or self.state_type == 'joint_velocities':
-            return self.get_joint_velocities(arm)
-        else:
-            return self.get_joint_torques(arm)
+        return self.get_ee_pose() + self.get_joint_angles()
+
 
     def set_state_type(self, state_type):
         """
@@ -663,35 +668,7 @@ class Baxter(object):
         Set ready position for both arms.
         """
         if self.sim:
-            # Initial pose for left and right arms
-            # initial_pose = [
-            #   # right arm
-            #   [12, 0.00],
-            #   [13, -0.55],
-            #   [14, 0.00],
-            #   [15, 0.75],
-            #   [16, 0.00],
-            #   [18, 1.26],
-            #   [19, 0.00],
-            #   # right gripper
-            #   [27, -0.0052],
-            #   [29, -0.0052],
-            #   # left arm
-            #   [34, 0.00],
-            #   [35, -0.55],
-            #   [36, 0.00],
-            #   [37, 0.75],
-            #   [38, 0.00],
-            #   [40, 1.26],
-            #   [41, 0.00],
-            #   # left gripper
-            #   [49, -0.0052],
-            #   [51, -0.0052]]
-            #
-            # # set position of arms
-            # for joint_index, joint_val in initial_pose:
-            #     p.resetJointState(self.baxter_id, joint_index, joint_val)
-            #     p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
+            pass
         else:
             self.right_arm.move_to_neutral()
             self.left_arm.move_to_neutral()
