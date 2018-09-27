@@ -58,6 +58,7 @@ class Baxter(object):
             self.rate = rate
             self.freq = 1 / rate
             self.missed_cmds = missed_cmds
+        self.create_arms()
 
     def set_control(self, control):
         """
@@ -91,7 +92,6 @@ class Baxter(object):
             self._reset_real()
         # create joint dictionaries
         self.create_joint_dicts()
-
 
     def _reset_real(self):
         # enable robot
@@ -172,8 +172,6 @@ class Baxter(object):
         """
         Number of degrees of freedom
         """
-        #TODO
-        # rewrite to accomodate active and inactive joints
         if self.control == CONTROL.EE:
             return 6 * self.num_arms
         else:
@@ -455,15 +453,16 @@ class Baxter(object):
         Return
             joints (list): A list of joint angles
         """
+        new_pose = np.array(self.get_ee_pose()) + np.array(ee_pose)
         if arm is None:
             if self.num_arms == 2:
                 raise ValueError("Must specify arg arm when both arms are active")
             else:
                 arm = self.arm.name
         if self.sim:
-            joints = self._sim_ik(ee_pose, arm)
+            joints = self._sim_ik(new_pose, arm)
         else:
-            joints = self._real_ik(ee_pose, arm)
+            joints = self._real_ik(new_pose, arm)
         if not joints:
             print("IK failed. Try running again or changing the pose.")
         return joints
