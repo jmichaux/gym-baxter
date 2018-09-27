@@ -12,7 +12,7 @@ class RobotBaseEnv(gym.GoalEnv):
     def __init__(self, n_actions, n_substeps):
         self.seed()
         self.goal = self._sample_goal()
-        self.action_space = self._set_action_space()
+        self.action_space = self._set_action_space(n_actions)
         self.observation_space = self._set_observation_space()
 
     def seed(self, seed=None):
@@ -20,15 +20,15 @@ class RobotBaseEnv(gym.GoalEnv):
         return [seed]
 
     def step(self, action):
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        # action = np.clip(action, self.action_space.low, self.action_space.high)
         self._apply_action(action)
         obs = self._get_obs()
         done = False
         info = {
-            'is_success': self._is_succes(obs['achieved_goal'], self.goal)
+            'is_success': self._is_success(obs['achieved_goal'], self.goal)
             }
         reward = self.compute_reward(obs['achieved_goal'], self.goal, info)
-        return
+        return obs, reward, done, info
 
     def reset(self):
         """Resets the environment
@@ -65,11 +65,11 @@ class RobotBaseEnv(gym.GoalEnv):
         """
         raise NotImplementedError()
 
-    def _env_setup(self, initial_qpos):
-        """Initial configuration of the environment. Can be used to configure initial state
-        and extract information from the simulation.
+    def _env_setup(self, sim, arm, initial_pose):
+        """Initial configuration of the environment. Can be used to choose configure initial state,
+        choose robot arm, choose simulation, load objects, and extract information from the simulation.
         """
-        pass
+        return
 
     def _viewer_setup(self):
         """Initial configuration of the viewer. Can be used to set the camera position,
