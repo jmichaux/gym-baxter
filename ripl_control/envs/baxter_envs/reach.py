@@ -9,6 +9,7 @@ from gym import error, utils, spaces
 from gym.spaces import Box
 from gym.utils import seeding
 
+import pybullet as p
 from ripl_control.envs.baxter import *
 from ripl_control.envs.robot_base_env import RobotBaseEnv
 from ripl_control.envs.config.baxter_config import PyBulletConfig
@@ -21,7 +22,7 @@ class REWARD(IntEnum):
 
 class BaxterReacherEnv(RobotBaseEnv):
     def __init__(self,
-                 sim=False,
+                 sim=True,
                  arm="right",
                  control='ee_pose',
                  goal_threshold=1e-2,
@@ -31,14 +32,18 @@ class BaxterReacherEnv(RobotBaseEnv):
                  random_start=False):
         self.arm = arm
         self.sim = sim
+        self.control = control
         self.random_start = random_start
         if self.sim:
-            import pybullet as p
             # TODO: Fix this
-            p.connect(p.GUI)
             self._dv = 0.005
             self._action_repeat = 1
             self.config = PyBulletConfig()
+            cid = p.connect(p.SHARED_MEMORY)
+            if (cid<0):
+                cid = p.connect(p.GUI)
+            # else:
+                # p.connect(p.DIRECT)
         else:
             rospy.init_node("reacher_env")
             self._dv = 0.05
@@ -51,11 +56,25 @@ class BaxterReacherEnv(RobotBaseEnv):
                                                n_substeps=20)
 
     def reset(self):
-        if self.random_start:
-            pass
+        if self.sim:
+            p.resetSimulation()
+            self.baxter = Baxter(sim=True,
+                                 control=self.control,
+                                 config=self.config)
+            if self.random_start:
+                pass
+                # select random initial pose
+            else:
+                self.baxter.reset(self.config.initial_pose)
+            p.setPhysicsEngineParameter(numSolverIterations=150)
+            # p.setTimeStep(1/240.)
+            p.setRealTimeSimulation(1)
+            p.setGravity(0,0,-10)
+            # p.stepSimulation()
         else:
-            self.baxter.reset(self.config.initial_pose)
+            self.baxter.reset()
         self.goal = self._sample_goal()
+
         return self._get_obs()
 
     def _env_setup(self, sim, control, goal_threshold, reward_type, config):
@@ -92,6 +111,7 @@ class BaxterReacherEnv(RobotBaseEnv):
         if self.sim:
             for i in range(self._action_repeat):
                 self.baxter.apply_action(self.arm, real_action)
+                # p.stepSimulation()
         else:
             self.baxter.apply_action(self.arm, real_action)
             self.baxter.control_rate.sleep()
