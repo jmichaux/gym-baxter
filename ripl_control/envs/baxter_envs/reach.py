@@ -11,6 +11,9 @@ from gym.utils import seeding
 
 from ripl_control.envs.baxter import *
 from ripl_control.envs.robot_base_env import RobotBaseEnv
+from ripl_control.envs.config.baxter_config import PyBulletConfig
+from ripl_control.envs.config.baxter_config import ROSConfig
+
 
 class REWARD(IntEnum):
     SPARSE = 0
@@ -24,32 +27,42 @@ class BaxterReacherEnv(RobotBaseEnv):
                  goal_threshold=1e-2,
                  reward_type=REWARD.SPARSE,
                  n_actions=4,
-                 discrete_actions=True):
+                 discrete_actions=True,
+                 random_start=False):
         self.arm = arm
         self.sim = sim
+        self.random_start = random_start
         if self.sim:
             import pybullet as p
             # TODO: Fix this
             p.connect(p.GUI)
             self._dv = 0.005
             self._action_repeat = 1
+            self.config = PyBulletConfig()
         else:
             rospy.init_node("reacher_env")
             self._dv = 0.05
+            self.config = ROSConfig()
         self.discrete_actions = discrete_actions
-        self._env_setup(sim, control, goal_threshold, reward_type)
+        self._env_setup(sim, control, goal_threshold, reward_type, self.config)
 
-        super(BaxterReacherEnv, self).__init__(n_actions, n_substeps=20)
+        super(BaxterReacherEnv, self).__init__(n_actions,
+                                               discrete_actions=self.discrete_actions,
+                                               n_substeps=20)
 
-    def reset(self, initial_pose=None):
-        self.baxter.reset()
+    def reset(self):
+        if self.random_start:
+            pass
+        else:
+            self.baxter.reset(self.config.initial_pose)
         self.goal = self._sample_goal()
         return self._get_obs()
 
-    def _env_setup(self, sim, control, goal_threshold, reward_type,):
+    def _env_setup(self, sim, control, goal_threshold, reward_type, config):
         # create robot
         self.baxter = Baxter(sim=sim,
-                             control=control)
+                             control=control,
+                             config=self.config)
 
         self.goal_threshold = goal_threshold
         self.reward_type = reward_type
