@@ -25,36 +25,38 @@ class BaxterReacherEnv(RobotBaseEnv):
                  reward_type=REWARD.SPARSE,
                  n_actions=4,
                  discrete_actions=True):
+        self.arm = arm
         self.sim = sim
         if self.sim:
             import pybullet as p
-            p.connect(p.Direct)
+            # TODO: Fix this
+            p.connect(p.GUI)
             self._dv = 0.005
             self._action_repeat = 1
         else:
             rospy.init_node("reacher_env")
             self._dv = 0.05
         self.discrete_actions = discrete_actions
-        self._env_setup(sim, arm, control, goal_threshold, reward_type, initial_pose=None)
+        self._env_setup(sim, control, goal_threshold, reward_type)
+
         super(BaxterReacherEnv, self).__init__(n_actions, n_substeps=20)
 
-    def reset(self):
+    def reset(self, initial_pose=None):
         self.baxter.reset()
         self.goal = self._sample_goal()
         return self._get_obs()
 
-    def _env_setup(self, sim, arm, control, goal_threshold, reward_type, initial_pose=None):
+    def _env_setup(self, sim, control, goal_threshold, reward_type,):
         # create robot
         self.baxter = Baxter(sim=sim,
-                             arm=arm,
                              control=control)
-        # set reward type and goal threshold
+
         self.goal_threshold = goal_threshold
         self.reward_type = reward_type
 
     def _get_obs(self):
-        ee_position = self.baxter.get_ee_position()
-        joint_angles = self.baxter.get_joint_angles()
+        ee_position = self.baxter.get_ee_position(self.arm)
+        joint_angles = self.baxter.get_joint_angles(self.arm)
         achieved_goal = ee_position[:3]
         state = np.array(ee_position + joint_angles)
         obs = {
@@ -66,7 +68,6 @@ class BaxterReacherEnv(RobotBaseEnv):
 
     def _apply_action(self, action):
         if self.discrete_actions:
-            pass
             dx = [0,-self._dv,self._dv,0,0,0,0][action]
             dy = [0,0,0,-self._dv,self._dv,0,0][action]
             dz = [0,0,0,0,0,-self._dv,self._dv][action]
@@ -77,9 +78,9 @@ class BaxterReacherEnv(RobotBaseEnv):
         real_action = [dx, dy, dz, 0, 0, 0]
         if self.sim:
             for i in range(self._action_repeat):
-                self.baxter_apply_action(real_action)
+                self.baxter.apply_action(self.arm, real_action)
         else:
-            self.baxter.apply_action(real_action)
+            self.baxter.apply_action(self.arm, real_action)
             self.baxter.control_rate.sleep()
 
     def compute_reward(self, achieved_goal, desired_goal, info):
@@ -94,7 +95,7 @@ class BaxterReacherEnv(RobotBaseEnv):
         x = np.random.uniform(.5, 1., 1)[0]
         y = np.random.uniform(-1, 0, 1)[0]
         z = np.random.uniform(-.3, .7, 1)[0]
-        if self.baxter.arm_name == 'left':
+        if self.arm == 'left':
             y *= -1
         return np.array([x, y, z])
 
