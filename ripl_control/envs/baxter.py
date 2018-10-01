@@ -74,6 +74,7 @@ class Baxter(object):
             # load baxter
             objects = [p.loadURDF(self.baxter_path, useFixedBase=True)]
             self.baxter_id = objects[0]
+            print("baxter_id: ", self.baxter_id)
             if self.config:
                 self.use_nullspace = True
                 self.use_orientation = True
@@ -83,6 +84,7 @@ class Baxter(object):
                 self.rp = self.config.nullspace.rp
             else:
                 self.use_nullspace = False
+            self.create_arms()
         else:
             self.create_arms()
             self.set_command_time_out()
@@ -114,7 +116,7 @@ class Baxter(object):
         # set initial position
         if initial_pose:
             for joint_index, joint_val in initial_pose:
-                p.resetJointState(self.baxter_id, joint_index, joint_val)
+                p.resetJointState(0, joint_index, joint_val)
                 p.setJointMotorControl2(self.baxter_id,
                                         jointIndex=joint_index,
                                         controlMode=control_mode,
@@ -415,19 +417,12 @@ class Baxter(object):
             action (list, tuple, or numpy array)
         """
         action = list(action)
-        if self.sim:
-            if arm == 'left':
-                self.left_arm.move_to_joint_positions(action)
-            elif arm == 'right':
-                self.right_arm.move_to_joint_positions(action)
-            elif arm == 'both':
+        if arm == 'left' or arm == 'right':
+            self.move_to_ee_pose(arm, action)
+        elif arm == 'both':
+            if self.sim:
                 joint_indices = self.left_arm.indices + self.right_arm.indices
                 self.left_arm.move_to_joint_positions(actions, joint_indices)
-        else:
-            if arm == 'left' or arm == 'right':
-                self.move_to_ee_pose(arm, action)
-            elif arm == 'both':
-                pass
             else:
                 pass
         return
@@ -444,8 +439,6 @@ class Baxter(object):
         Return
             joints (list): A list of joint angles
         """
-        print(arm)
-        print(ee_pose)
         new_pose = np.array(self.get_ee_pose(arm)) + np.array(ee_pose)
         if self.sim:
             joints = self._sim_ik(arm, new_pose)
