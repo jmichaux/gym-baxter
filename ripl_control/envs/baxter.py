@@ -13,6 +13,7 @@ from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 
 # TODO: implement transforms and remove this import
 import pybullet as p
+import baxter_pybullet_interface as pybullet_interface
 
 class CONTROL(IntEnum):
     VELOCITY = 0
@@ -25,10 +26,10 @@ class Baxter(object):
                  sim=False,
                  arm="right",
                  control=CONTROL.EE,
+                 config=None,
                  time_step=1.0,
                  rate=100.0,
                  missed_cmds=20000.0):
-
         self.set_control(control)
         self.sim = sim
         self.arm_name = arm
@@ -39,24 +40,14 @@ class Baxter(object):
         self.dof = self.calc_dof()
 
         if self.sim:
-            import pybullet as p
-            import baxter_pybullet_interface as pybullet_interface
-            self.baxter_urdf =  "/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
+            self.baxter_path = "/home/ripl/ripl-control/ripl_control/envs/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
             self.time_step = time_step
-            # values taken from
-            # http://sdk.rethinkrobotics.com/wiki/Hardware_Specifications#Peak_Torque
-            # TODO: verify these numbers
-            self.max_velocity = 0.0
-            self.max_force = 35.0
-            self.max_gripper_force = 35.0
-            self.left_finger_force = 0
-            self.right_finger_force = 0
-            self.finger_tip_force = 0.
         else:
             self.rate = rate
             self.freq = 1 / rate
             self.missed_cmds = missed_cmds
-        self.create_arms()
+        self.config=config
+        self.initial_setup()
 
     def set_control(self, control):
         """
@@ -78,60 +69,64 @@ class Baxter(object):
         self.right_arm.set_command_timeout(self.freq * self.missed_cmds)
         return
 
-    def reset(self):
+    def initial_setup(self):
         if self.sim:
-            self._reset_sim()
-            self.create_arms()
+            # load baxter
+            objects = [p.loadURDF(self.baxter_path, useFixedBase=True)]
+            self.baxter_id = objects[0]
+            if self.config:
+                self.use_nullspace = True
+                self.use_orientation = True
+                self.ll = self.config.nullspace.ll
+                self.ul = self.config.nullspace.ul
+                self.jr = self.config.nullspace.jr
+                self.rp = self.config.nullspace.rp
+            else:
+                self.use_nullspace = False
         else:
             self.create_arms()
-            # set joint command timeout and control rate
             self.set_command_time_out()
             self.control_rate = rospy.Rate(self.rate)
-            self._reset_real()
+
+    def reset(self, initial_pose=None):
+        if self.sim:
+            self._reset_sim(initial_pose)
+        else:
+            self._reset_real(initial_pose)
         # create joint dictionaries
         self.create_joint_dicts(arm="right")
-        # self.create_joint_dicts(arm="left")
+        self.create_joint_dicts(arm="left")
 
-    def _reset_real(self):
-        # enable robot
+    def _reset_real(self, initial_pose=None):
         self.enable()
-        # move arms to ready positions
-        self.set_ready_position()
-        # calibrate gripper
+        if initial_pose is None:
+            self.set_ready_position()
+        else:
+            pass
         self.calibrate_grippers()
-        # update state
-        # self.update_state()
 
-    def _reset_sim(self):
-        '''Load Baxter URDF'''
-        # Load assets for Baxter
-        objects = [p.loadURDF(self.baxter_urdf, [0.00000,0.000000, 1.00000,], useFixedBase=True)]
-        self.baxter_id = objects[0]
-        self.num_joints = p.getNumJoints(self.baxter_id)
-
-        # move arms to ready position
-        # self.set_ready_position()
-
-        # Get pose of end effectors
-        self.left_ee_pos, self.left_ee_angle = self.get_ee_pose(end_effector="left")
-        self.right_ee_pos, self.right_ee_angle = self.get_ee_pose(end_effector="right")
-
-        self.motor_names = []
-        self.motor_indices = []
-
-        for i in range(self.num_joints):
-          joint_info = p.getJointInfo(self.baxter_id, i)
-          q_ind = joint_info[3]
-          if q_ind > -1:
-            self.motor_names.append(str(joint_info[1]))
-            self.motor_indices.append(i)
-
-        # lower limits, upper limits, joint ranges,
-        # and rest poses for null space
-        self.ll, self.ul, self.jr, self.rp = self.get_joint_ranges()
-
-        # joint damping coefficients
-        self.jd = None
+    def _reset_sim(self, initial_pose=None):
+        # set control type
+        if self.control == CONTROL.EE:
+            control_mode = CONTROL.POSITION
+        else:
+            control_mode = self.control
+        # set initial position
+        if initial_pose:
+            for joint_index, joint_val in initial_pose:
+                p.resetJointState(self.baxter_id, joint_index, joint_val)
+                p.setJointMotorControl2(self.baxter_id,
+                                        jointIndex=joint_index,
+                                        controlMode=control_mode,
+                                        targetPosition=joint_val)
+        else:
+            num_joints = p.getNumJoints(self.baxter_id)
+            for joint_index in range(num_joints):
+                p.setJointMotorControl2(self.baxter_id,
+                                        joint_index,
+                                        control_mode,
+                                        maxForce=self.config.max_force)
+        return
 
     def create_arms(self):
         """
@@ -144,10 +139,10 @@ class Baxter(object):
         """
         # create arm objects
         if self.sim:
-            self.left_arm = pybullet_interface.Limb(self.baxter_id, "left")
+            self.left_arm = pybullet_interface.Limb(self.baxter_id, "left", self.config)
             # self.left_arm.gripper = pybullet_interface.Gripper("left")
 
-            self.right_arm = pybullet_interface.Limb(self.baxter_id, "right")
+            self.right_arm = pybullet_interface.Limb(self.baxter_id, "right", self.config)
             # self.right_arm.gripper = pybullet_interface.Gripper("right")
         else:
             self.left_arm = Limb("left")
@@ -233,14 +228,14 @@ class Baxter(object):
         Returns
             [X,Y,Z]
         """
+        if arm not in ['left', 'right', 'both']:
+            raise ValueError("Arg arm should be 'left' or 'right' or 'both'.")
         if arm == "left":
             return list(self.left_arm.endpoint_pose()['position'])
         elif arm == "right":
             return list(self.right_arm.endpoint_pose()['position'])
         elif arm == "both":
             return list(self.left_arm.endpoint_pose()['position']) + list(self.right_arm.endpoint_pose()['position'])
-        else:
-            raise ValueError("Arg arm should be 'left' or 'right' or 'both'.")
 
     def get_ee_orientation(self, arm, mode=None):
         """
@@ -251,14 +246,14 @@ class Baxter(object):
         Returns
             orn (list): list of Euler angles or Quaternion
         """
+        if arm not in ['left', 'right', 'both']:
+            raise ValueError("Arg arm should be 'left' or 'right'.")
         if arm == "left":
             orn = list(self.left_arm.endpoint_pose()['orientation'])
         elif arm == "right":
             orn = list(self.right_arm.endpoint_pose()['orientation'])
         elif arm == "both":
             orn = list(self.left_arm.endpoint_pose()['orientation']) + list(self.right_arm.endpoint_pose()['orientation'])
-        else:
-            raise ValueError("Arg arm should be 'left' or 'right'.")
         return list(p.getEulerFromQuaternion(orn))
 
     def get_joint_angles(self, arm):
@@ -436,17 +431,6 @@ class Baxter(object):
             else:
                 pass
         return
-        # if self.sim:
-        #     pass
-        # else:
-        #     if self.num_arms == 1:
-        #         self.move_to_ee_pose(action, arm=self.arm.name, blocking=True)
-        #     else:
-        #         left_action = action[:self.dof]
-        #         right_action = action[self.dof:]
-        #         self.move_to_ee_pose(left_action, arm=self.left_arm.name, blocking=False)
-        #         self.move_to_ee_pose(right_action, arm=self.right_arm.name, blocking=True)
-        # return
 
     def calc_ik(self, arm, ee_pose):
         """
@@ -485,21 +469,24 @@ class Baxter(object):
         """
         if arm == 'right':
             ee_index = self.right_arm.ee_index
-        else:
+        elif arm == 'left':
             ee_index = self.left_arm.ee_index
+        elif arm == 'both':
+            pass
+        else:
+            raise ValueError("Arg arm must be 'left', 'right', or 'both'.")
         pos = ee_pose[:3]
         orn = ee_pose[3:]
-        if (self.useNullSpace==1):
-            if (self.useOrientation==1):
+        if (self.use_nullspace==1):
+            if (self.use_orientation==1):
                 joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos, orn, self.ll, self.ul, self.jr, self.rp)
             else:
                 joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos, lowerLimits=self.ll, upperLimits=self.ul, jointRanges=self.jr, restPoses=self.rp)
         else:
-            if (self.useOrientation==1):
+            if (self.use_orientation==1):
                 joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos, orn,jointDamping=self.jd)
             else:
                 joints = p.calculateInverseKinematics(self.baxter_id, ee_index, pos)
-
         return joints
 
     def _real_ik(self, arm, ee_pose):
@@ -560,59 +547,53 @@ class Baxter(object):
         Creates a dictionary that maps ints to joint names
         {int: joint name}
         """
-        if self.sim:
-            pass
-        else:
-            if arm == "right":
-                joints = self.right_arm.joint_names()
-            elif arm == "left":
-                joints = self.left_arm.joint_names()
-            elif arm == "both":
-                joints = self.left_arm.joint_names() + self.right_arm.joint_names()
-            inds = range(len(joints))
-            joint_dict = dict(zip(inds, joints))
+        if arm == "right":
+            joints = self.right_arm.joint_names()
+        elif arm == "left":
+            joints = self.left_arm.joint_names()
+        elif arm == "both":
+            joints = self.left_arm.joint_names() + self.right_arm.joint_names()
+        inds = range(len(joints))
+        joint_dict = dict(zip(inds, joints))
         return joint_dict
 
     def create_joint_range_dict(self, arm):
-        if self.sim:
-            pass
+        if arm == "right":
+            joint_ranges = {
+                'right_s0' : {'min': -1.7016, 'max': 1.7016},
+                'right_s1' : {'min': -2.147, 'max': 2.147},
+                'right_e0' : {'min': -3.0541, 'max': 3.0541},
+                'right_e1' : {'min': -0.05, 'max': 2.618},
+                'right_w0' : {'min': -3.059, 'max': 3.059 },
+                'right_w1' : {'min': -1.5707, 'max': 2.094},
+                'right_w2' : {'min': -3.059, 'max': 3.059 }}
+        elif arm == "left":
+            joint_ranges = {
+                'left_s0' : {'min': -1.7016, 'max': 1.7016},
+                'left_s1' : {'min': -2.147, 'max': 2.147},
+                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
+                'left_e1' : {'min': -0.05, 'max': 2.618},
+                'left_w0' : {'min': -3.059, 'max': 3.059 },
+                'left_w1' : {'min': -1.5707, 'max': 2.094},
+                'left_w2' : {'min': -3.059, 'max': 3.059}}
+        elif arm == "both":
+            joint_ranges = {
+                'left_s0' : {'min': -1.7016, 'max': 1.7016},
+                'left_s1' : {'min': -2.147, 'max': 2.147},
+                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
+                'left_e1' : {'min': -0.05, 'max': 2.618},
+                'left_w0' : {'min': -3.059, 'max': 3.059 },
+                'left_w1' : {'min': -1.5707, 'max': 2.094},
+                'left_w2' : {'min': -3.059, 'max': 3.059},
+                'right_s0' : {'min': -1.7016, 'max': 1.7016},
+                'right_s1' : {'min': -2.147, 'max': 2.147},
+                'right_e0' : {'min': -3.0541, 'max': 3.0541},
+                'right_e1' : {'min': -0.05, 'max': 2.618},
+                'right_w0' : {'min': -3.059, 'max': 3.059 },
+                'right_w1' : {'min': -1.5707, 'max': 2.094},
+                'right_w2' : {'min': -3.059, 'max': 3.059 }}
         else:
-            if arm == "right":
-                joint_ranges = {
-                    'right_s0' : {'min': -1.7016, 'max': 1.7016},
-                    'right_s1' : {'min': -2.147, 'max': 2.147},
-                    'right_e0' : {'min': -3.0541, 'max': 3.0541},
-                    'right_e1' : {'min': -0.05, 'max': 2.618},
-                    'right_w0' : {'min': -3.059, 'max': 3.059 },
-                    'right_w1' : {'min': -1.5707, 'max': 2.094},
-                    'right_w2' : {'min': -3.059, 'max': 3.059 }}
-            elif arm == "left":
-                joint_ranges = {
-                    'left_s0' : {'min': -1.7016, 'max': 1.7016},
-                    'left_s1' : {'min': -2.147, 'max': 2.147},
-                    'left_e0' : {'min': -3.0541, 'max': 3.0541 },
-                    'left_e1' : {'min': -0.05, 'max': 2.618},
-                    'left_w0' : {'min': -3.059, 'max': 3.059 },
-                    'left_w1' : {'min': -1.5707, 'max': 2.094},
-                    'left_w2' : {'min': -3.059, 'max': 3.059}}
-            elif arm == "both":
-                joint_ranges = {
-                    'left_s0' : {'min': -1.7016, 'max': 1.7016},
-                    'left_s1' : {'min': -2.147, 'max': 2.147},
-                    'left_e0' : {'min': -3.0541, 'max': 3.0541 },
-                    'left_e1' : {'min': -0.05, 'max': 2.618},
-                    'left_w0' : {'min': -3.059, 'max': 3.059 },
-                    'left_w1' : {'min': -1.5707, 'max': 2.094},
-                    'left_w2' : {'min': -3.059, 'max': 3.059},
-                    'right_s0' : {'min': -1.7016, 'max': 1.7016},
-                    'right_s1' : {'min': -2.147, 'max': 2.147},
-                    'right_e0' : {'min': -3.0541, 'max': 3.0541},
-                    'right_e1' : {'min': -0.05, 'max': 2.618},
-                    'right_w0' : {'min': -3.059, 'max': 3.059 },
-                    'right_w1' : {'min': -1.5707, 'max': 2.094},
-                    'right_w2' : {'min': -3.059, 'max': 3.059 }}
-            else:
-                raise ValueError("Arg arm must be 'right', 'left', or 'both'.")
+            raise ValueError("Arg arm must be 'right', 'left', or 'both'.")
         return joint_ranges
 
     def parse_action_dict(self, action_dict):
@@ -651,11 +632,9 @@ class Baxter(object):
 
     def euler_to_quat(self, orn):
         # TODO: replace this function
-        # TODO: assert orn is right shape
         return p.getQuaternionFromEuler(orn)
 
     def quat_to_euler(self, orn):
-        # TODO: assert orn is right shape
         return p.getEulerFromQuaternion(orn)
 
 if __name__ == "__main__":
