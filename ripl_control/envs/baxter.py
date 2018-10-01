@@ -316,12 +316,6 @@ class Baxter(object):
             joint_efforts = joint_efforts.values()
         return
 
-    # def get_action_dimension(self):
-    #     """
-    #     Returns size of action
-    #     """
-    #     return self.dof * self.num_arms
-
     def apply_action(self, arm, action):
         """
         Apply a joint action
