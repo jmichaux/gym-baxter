@@ -9,9 +9,10 @@ from gym import error, spaces
 from gym.utils import seeding
 
 class RobotBaseEnv(gym.GoalEnv):
-    def __init__(self, n_actions, n_substeps):
+    def __init__(self, n_actions, discrete_actions, n_substeps):
         self.seed()
         self.goal = self._sample_goal()
+        self.discrete_actions = discrete_actions
         self.action_space = self._set_action_space(n_actions)
         self.observation_space = self._set_observation_space()
 
@@ -20,7 +21,10 @@ class RobotBaseEnv(gym.GoalEnv):
         return [seed]
 
     def step(self, action):
-        # action = np.clip(action, self.action_space.low, self.action_space.high)
+        if self.discrete_actions:
+            pass
+        else:
+            action = np.clip(action, self.action_space.low, self.action_space.high)
         self._apply_action(action)
         obs = self._get_obs()
         done = False
