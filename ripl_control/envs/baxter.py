@@ -32,12 +32,10 @@ class Baxter(object):
         self.set_control(control)
         self.sim = sim
         self.arm_name = arm
-        # number of arms
         if self.arm_name == "both":
             self.num_arms = 2
         else:
             self.num_arms = 1
-        # number of degrees of freedom
         self.dof = self.calc_dof()
 
         if self.sim:
@@ -91,7 +89,8 @@ class Baxter(object):
             self.control_rate = rospy.Rate(self.rate)
             self._reset_real()
         # create joint dictionaries
-        self.create_joint_dicts()
+        self.create_joint_dicts(arm="right")
+        # self.create_joint_dicts(arm="left")
 
     def _reset_real(self):
         # enable robot
@@ -143,15 +142,12 @@ class Baxter(object):
         Args
             arm (str): "right", "left", "both"
         """
-        if self.arm_name not in ["right", "left", "both"]:
-            raise ValueError("You must specify arm must as 'left', 'right', or 'both'")
-
         # create arm objects
         if self.sim:
             self.left_arm = pybullet_interface.Limb(self.baxter_id, "left")
             # self.left_arm.gripper = pybullet_interface.Gripper("left")
 
-            self.right_arm = pybullet_interface.Limb(self.baxter, "right")
+            self.right_arm = pybullet_interface.Limb(self.baxter_id, "right")
             # self.right_arm.gripper = pybullet_interface.Gripper("right")
         else:
             self.left_arm = Limb("left")
@@ -159,13 +155,6 @@ class Baxter(object):
 
             self.right_arm = Limb("right")
             self.right_arm.gripper = Gripper("right")
-
-        if self.arm_name == "right":
-            self.arm = self.right_arm
-            self.arm.gripper = self.right_arm.gripper
-        elif self.arm_name == "left":
-            self.arm = self.left_arm
-            self.arm.gripper = self.left_arm.gripper
         return
 
     def calc_dof(self):
@@ -196,7 +185,7 @@ class Baxter(object):
     def shutdown(self):
         pass
 
-    def move_to_ee_pose(self, pose, arm=None, blocking=True):
+    def move_to_ee_pose(self, arm, pose, blocking=True):
         """
         Move end effector to specified pose
 
@@ -204,14 +193,7 @@ class Baxter(object):
             pose (list): [X, Y, Z, r, p, w]
             arm (string): "left" or "right"
         """
-        joints = self.calc_ik(pose, arm) # dict
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
-            if blocking:
-                self.arm.move_to_joint_positions(joints)
-            else:
-                self.arm.set_joint_positions(joint)
+        joints = self.calc_ik(arm, pose)
         if arm == "left":
             if blocking:
                 self.left_arm.move_to_joint_positions(joints)
@@ -224,7 +206,7 @@ class Baxter(object):
                 self.right_arm.set_joint_positions(joints)
         return
 
-    def get_ee_pose(self, arm=None, mode=None):
+    def get_ee_pose(self, arm, mode=None):
         """
         Returns end effector pose for specified arm.
 
@@ -237,126 +219,110 @@ class Baxter(object):
         Returns
             pose (list): Euler angles [X,Y,Z,r,p,w] or Quaternion [X,Y,Z,x,y,z,w]
         """
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
-            else:
-                pos = self.get_ee_position(self.arm.name)
-                orn = self.get_ee_orientation(self.arm.name)
-        else:
-            pos = self.get_ee_position(arm)
-            orn = self.get_ee_orientation(arm, mode)
+        pos = self.get_ee_position(arm)
+        orn = self.get_ee_orientation(arm, mode)
         return pos + orn
 
-    def get_ee_position(self, arm=None):
+    def get_ee_position(self, arm):
         """
         Returns end effector position for specified arm.
 
         Returns the 3D cartesion coordinates of the end effector.
         Args
-            arm (string): "left" or "right"
+            arm (string): "left" or "right" or "both"
         Returns
             [X,Y,Z]
         """
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms.")
-            else:
-                return list(self.arm.endpoint_pose()['position'])
-        elif arm == "left":
+        if arm == "left":
             return list(self.left_arm.endpoint_pose()['position'])
         elif arm == "right":
             return list(self.right_arm.endpoint_pose()['position'])
+        elif arm == "both":
+            return list(self.left_arm.endpoint_pose()['position']) + list(self.right_arm.endpoint_pose()['position'])
         else:
-            raise ValueError("Arg arm should be 'left' or 'right'.")
+            raise ValueError("Arg arm should be 'left' or 'right' or 'both'.")
 
-    def get_ee_orientation(self, arm=None, mode=None):
+    def get_ee_orientation(self, arm, mode=None):
         """
         Returns a list of the orientations of the end effectors(s)
         Args
-            arm (string): "right" or "left"
+            arm (string): "right" or "left" or "both"
             mode (string): specifies angle representation
         Returns
             orn (list): list of Euler angles or Quaternion
         """
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm as 'left' or 'right' when planning with both arms,")
-            else:
-                orn = list(self.arm.endpoint_pose()['orientation'])
-        elif arm == "left":
+        if arm == "left":
             orn = list(self.left_arm.endpoint_pose()['orientation'])
         elif arm == "right":
             orn = list(self.right_arm.endpoint_pose()['orientation'])
+        elif arm == "both":
+            orn = list(self.left_arm.endpoint_pose()['orientation']) + list(self.right_arm.endpoint_pose()['orientation'])
         else:
             raise ValueError("Arg arm should be 'left' or 'right'.")
         return list(p.getEulerFromQuaternion(orn))
 
-    def get_joint_angles(self, arm=None):
+    def get_joint_angles(self, arm):
         """
         Get joint angles for specified arm
 
         Args
-            arm(strin): "right" or "left"
+            arm(strin): "right" or "left" or "both"
 
         Returns
             joint_angles (list): List of joint angles starting from the right_s0 ('right_upper_shoulder')
                 and going down the kinematic tree to the end effector.
         """
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm when both arms active.")
-            else:
-                joint_angles = self.arm.joint_angles().values()
-        elif arm == "left":
-            joint_angles = self.left_arm.joint_angles().values()
+        if arm == "left":
+            joint_angles = self.left_arm.joint_angles()
         elif arm == "right":
-            joint_angles = self.right_arm.joint_angles().values()
+            joint_angles = self.right_arm.joint_angles()
+        elif arm == "both":
+            joint_angles = self.left_arm.joint_angles() + self.right_arm.joint_angles()
         else:
-            raise ValueError("Arg arm should be 'left' or 'right'.")
+            raise ValueError("Arg arm should be 'left' or 'right' or 'both'.")
+        if not self.sim:
+            joint_angles = joint_angles.values()
         return joint_angles
 
-    def get_joint_velocities(self, arm=None):
+    def get_joint_velocities(self, arm):
         """
         Get joint velocites for specified arm
         """
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm when both arms active.")
-            else:
-                return self.arm.joint_velocities()
+        if arm == "left":
+            return self.left_arm.joint_velocities()
         elif arm == "right":
             return self.right_arm.joint_velocities()
-        elif arm == "left":
-            return self.left_arm.joint_velocities()
+        elif arm == "both":
+            return self.left_arm.joint_velocities() + self.right_arm.joint_velocities()
         else:
-            raise ValueError("Arg arm should be 'left' or 'right'.")
-        return
+            raise ValueError("Arg arm should be 'left' or 'right' or 'both'.")
+        if not self.sim:
+            joint_velocities = joint_velocities.values()
+        return joint_velocities
 
-    def get_joint_torques(self, arm=None):
+    def get_joint_efforts(self, arm):
         """
         Get joint torques for specified arm
         """
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm when both arms active.")
-            else:
-                return self.arm.joint_efforts()
+        if arm == "left":
+            return self.left_arm.joint_effort()
         elif arm == "right":
             return self.right_arm.joint_efforts()
-        elif arm == "left":
-            return self.left_arm.joint_effort()
+        elif arm == "both":
+            return self.left_arm.joint_efforts() + self.right_arm.joint_efforts()
         else:
-            raise ValueError("Arg arm should be 'left' or 'right'.")
+            raise ValueError("Arg arm should be 'left' or 'right' or 'both'.")
+        if not self.sim:
+            joint_efforts = joint_efforts.values()
         return
 
-    def get_action_dimension(self):
-        """
-        Returns size of action
-        """
-        return self.dof * self.num_arms
+    # def get_action_dimension(self):
+    #     """
+    #     Returns size of action
+    #     """
+    #     return self.dof * self.num_arms
 
-    def apply_action(self, action):
+    def apply_action(self, arm, action):
         """
         Apply a joint action
 
@@ -367,81 +333,128 @@ class Baxter(object):
                     or joint angles (7DOF * num_arms)
         """
         # verify action
-        verified, err = self._verify_action(action)
+        verified, err = self._verify_action(arm, action)
         if not verified:
             raise err
         # execute action
         if self.control == CONTROL.POSITION:
-            self._apply_position_control(action)
+            self._apply_position_control(arm, action)
         elif self.control == CONTROL.EE:
-            self._apply_ee_control(action)
+            self._apply_ee_control(arm, action)
         elif self.control == CONTROL.VELOCITY:
-            self._apply_velocity_control(action)
+            self._apply_velocity_control(arm, action)
         else:
-            self._apply_torque_control(action)
+            self._apply_torque_control(arm, action)
 
-    def _verify_action(self, action):
+    def _verify_action(self, arm, action):
         """
         Verify type and dimension of action
 
         Args
+            arm (str): "left" or "right" or "both"
             action (list): list of floats len will vary depending on action type
 
         Returns
             bool: True if action is right dimension, false otherwise
         """
-        # assert action is a list or tuple
-        if not isinstance(action, (list, tuple)):
+        if arm not in ["left", "right", "both"]:
+            return False, ValueError("Arg name must be string")
+        if not isinstance(action, (list, tuple, np.ndarray)):
             return False, TypeError("Action must be a list or tuple.")
         # check action has right size
-        if len(action) != self.dof*self.num_arms:
-            return False, ValueError("Action must have len {}".format(self.dof*self.num_arms))
+        if arm == "both":
+            num_arms = 2
+        else:
+            num_arms = 1
+        if len(action) != self.dof * num_arms:
+            return False, ValueError("Action must have len {}".format(self.dof * num_arms))
         return True, ""
 
     def _clip_action(self, action):
         pass
 
-    def _apply_position_control(self, action):
+    def get_arm(self, arm):
+        if arm == 'right':
+            return self.right_arm
+        elif arm == 'left':
+            return self.left_arm
+
+    def _apply_position_control(self, arm, action):
         """
         Apply a joint action
         Inputs:
             action - list or array of joint angles
         Blocking when moving the arm
         """
-        if self.num_arms == 1:
-            action_dict = self.create_action_dict(action)
-            # blocking
-            self.arm.move_to_joint_positions(action_dict)
+        action = list(action)
+        if self.sim:
+            if arm == 'left':
+                self.left_arm.move_to_joint_positions(action)
+            elif arm == 'right':
+                self.right_arm.move_to_joint_positions(action)
+            elif arm == 'both':
+                joint_indices = self.left_arm.indices + self.right_arm.indices
+                self.left_arm.move_to_joint_positions(action, joint_indices)
         else:
-            action_dict = self.create_action_dict(action)
-            l_action_dict, r_action_dict = self.parse_action_dict(action_dict)
-            # not blocking
-            self.left_arm.set_joint_positions(l_action_dict)
-            # blocking
-            self.right_arm.move_to_joint_positions(r_action_dict)
+            if arm == 'both':
+                    l_action = action[:7]
+                    r_action = action[7:]
+                    l_action_dict = self.create_action_dict('left', l_action)
+                    r_action_dict = self.create_action_dict('right', r_action)
+                    self.left_arm.set_joint_positions(l_action_dict)
+                    self.right_arm.move_to_joint_positions(r_action_dict)
+            if arm == 'left':
+                if self.sim:
+                    self.left_arm.move_to_joint_positions(action)
+                else:
+                    action_dict = self.create_action_dict(arm, action)
+                    self.left_arm.set_joint_positions(action_dict)
+            if arm == 'right':
+                if self.sim:
+                    self.right_arm.move_to_joint_positions(action)
+                else:
+                    action_dict = self.create_action_dict(arm, action)
+                    self.right_arm.set_joint_positions(action_dict)
         self.update_state()
         return
 
-    def _apply_ee_control(self, action):
+    def _apply_ee_control(self, arm, action):
         """
         Apply action to move Baxter end effector(s)
 
         Args
-            action (list or tuple)
+            action (list, tuple, or numpy array)
         """
+        action = list(action)
         if self.sim:
-            pass
+            if arm == 'left':
+                self.left_arm.move_to_joint_positions(action)
+            elif arm == 'right':
+                self.right_arm.move_to_joint_positions(action)
+            elif arm == 'both':
+                joint_indices = self.left_arm.indices + self.right_arm.indices
+                self.left_arm.move_to_joint_positions(actions, joint_indices)
         else:
-            if self.num_arms == 1:
-                self.move_to_ee_pose(action, arm=self.arm.name, blocking=True)
+            if arm == 'left' or arm == 'right':
+                self.move_to_ee_pose(arm, action)
+            elif arm == 'both':
+                pass
             else:
-                left_action = action[:self.dof]
-                right_action = action[self.dof:]
-                self.move_to_ee_pose(left_action, arm=self.left_arm.name, blocking=False)
-                self.move_to_ee_pose(right_action, arm=self.right_arm.name, blocking=True)
+                pass
         return
+        # if self.sim:
+        #     pass
+        # else:
+        #     if self.num_arms == 1:
+        #         self.move_to_ee_pose(action, arm=self.arm.name, blocking=True)
+        #     else:
+        #         left_action = action[:self.dof]
+        #         right_action = action[self.dof:]
+        #         self.move_to_ee_pose(left_action, arm=self.left_arm.name, blocking=False)
+        #         self.move_to_ee_pose(right_action, arm=self.right_arm.name, blocking=True)
+        # return
 
-    def calc_ik(self, ee_pose, arm=None):
+    def calc_ik(self, arm, ee_pose):
         """
         Calculate inverse kinematics for a given end effector pose
 
@@ -453,21 +466,18 @@ class Baxter(object):
         Return
             joints (list): A list of joint angles
         """
-        new_pose = np.array(self.get_ee_pose()) + np.array(ee_pose)
-        if arm is None:
-            if self.num_arms == 2:
-                raise ValueError("Must specify arg arm when both arms are active")
-            else:
-                arm = self.arm.name
+        print(arm)
+        print(ee_pose)
+        new_pose = np.array(self.get_ee_pose(arm)) + np.array(ee_pose)
         if self.sim:
-            joints = self._sim_ik(new_pose, arm)
+            joints = self._sim_ik(arm, new_pose)
         else:
-            joints = self._real_ik(new_pose, arm)
+            joints = self._real_ik(arm, new_pose)
         if not joints:
             print("IK failed. Try running again or changing the pose.")
         return joints
 
-    def _sim_ik(self, ee_pose, arm):
+    def _sim_ik(self, arm, ee_pose):
         """
         (Sim) Calculate inverse kinematics for a given end effector pose
 
@@ -498,7 +508,7 @@ class Baxter(object):
 
         return joints
 
-    def _real_ik(self, ee_pose, arm):
+    def _real_ik(self, arm, ee_pose):
         """
         (Real) Calculate inverse kinematics for a given end effector pose
 
@@ -507,7 +517,7 @@ class Baxter(object):
                 pos - x,y,z
                 orn - r,p,w
         Returns:
-            joint_angles (list): List of joint angles
+            joint_angles (dict): Dictionary containing {'joint_name': joint_angle}
         """
         pos = ee_pose[:3]
         orn = ee_pose[3:]
@@ -543,12 +553,15 @@ class Baxter(object):
     def _apply_torque_control(self, action):
         return
 
-    def create_joint_dicts(self):
-        self.joint_dict = self.create_joint_lookup_dict()
-        self.joint_ranges = self.create_joint_range_dict()
+    def create_joint_dicts(self, arm):
+        """
+        Creates dictionaries for joint names and ranges
+        """
+        self.joint_dict = self.create_joint_lookup_dict(arm)
+        self.joint_ranges = self.create_joint_range_dict(arm)
         return
 
-    def create_joint_lookup_dict(self):
+    def create_joint_lookup_dict(self, arm):
         """"
         Creates a dictionary that maps ints to joint names
         {int: joint name}
@@ -556,33 +569,56 @@ class Baxter(object):
         if self.sim:
             pass
         else:
-            if self.num_arms == 1:
-                joints = self.arm.joint_names()
-            else:
+            if arm == "right":
+                joints = self.right_arm.joint_names()
+            elif arm == "left":
+                joints = self.left_arm.joint_names()
+            elif arm == "both":
                 joints = self.left_arm.joint_names() + self.right_arm.joint_names()
             inds = range(len(joints))
             joint_dict = dict(zip(inds, joints))
         return joint_dict
 
-    def create_joint_range_dict(self):
+    def create_joint_range_dict(self, arm):
         if self.sim:
             pass
         else:
-            joint_ranges = {
-                'left_s0' : {'min': -1.7016, 'max': 1.7016},
-                'left_s1' : {'min': -2.147, 'max': 2.147},
-                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
-                'left_e1' : {'min': -0.05, 'max': 2.618},
-                'left_w0' : {'min': -3.059, 'max': 3.059 },
-                'left_w1' : {'min': -1.5707, 'max': 2.094},
-                'left_w2' : {'min': -3.059, 'max': 3.059},
-                'right_s0' : {'min': -1.7016, 'max': 1.7016},
-                'right_s1' : {'min': -2.147, 'max': 2.147},
-                'right_e0' : {'min': -3.0541, 'max': 3.0541},
-                'right_e1' : {'min': -0.05, 'max': 2.618},
-                'right_w0' : {'min': -3.059, 'max': 3.059 },
-                'right_w1' : {'min': -1.5707, 'max': 2.094},
-                'right_w2' : {'min': -3.059, 'max': 3.059 }}
+            if arm == "right":
+                joint_ranges = {
+                    'right_s0' : {'min': -1.7016, 'max': 1.7016},
+                    'right_s1' : {'min': -2.147, 'max': 2.147},
+                    'right_e0' : {'min': -3.0541, 'max': 3.0541},
+                    'right_e1' : {'min': -0.05, 'max': 2.618},
+                    'right_w0' : {'min': -3.059, 'max': 3.059 },
+                    'right_w1' : {'min': -1.5707, 'max': 2.094},
+                    'right_w2' : {'min': -3.059, 'max': 3.059 }}
+            elif arm == "left":
+                joint_ranges = {
+                    'left_s0' : {'min': -1.7016, 'max': 1.7016},
+                    'left_s1' : {'min': -2.147, 'max': 2.147},
+                    'left_e0' : {'min': -3.0541, 'max': 3.0541 },
+                    'left_e1' : {'min': -0.05, 'max': 2.618},
+                    'left_w0' : {'min': -3.059, 'max': 3.059 },
+                    'left_w1' : {'min': -1.5707, 'max': 2.094},
+                    'left_w2' : {'min': -3.059, 'max': 3.059}}
+            elif arm == "both":
+                joint_ranges = {
+                    'left_s0' : {'min': -1.7016, 'max': 1.7016},
+                    'left_s1' : {'min': -2.147, 'max': 2.147},
+                    'left_e0' : {'min': -3.0541, 'max': 3.0541 },
+                    'left_e1' : {'min': -0.05, 'max': 2.618},
+                    'left_w0' : {'min': -3.059, 'max': 3.059 },
+                    'left_w1' : {'min': -1.5707, 'max': 2.094},
+                    'left_w2' : {'min': -3.059, 'max': 3.059},
+                    'right_s0' : {'min': -1.7016, 'max': 1.7016},
+                    'right_s1' : {'min': -2.147, 'max': 2.147},
+                    'right_e0' : {'min': -3.0541, 'max': 3.0541},
+                    'right_e1' : {'min': -0.05, 'max': 2.618},
+                    'right_w0' : {'min': -3.059, 'max': 3.059 },
+                    'right_w1' : {'min': -1.5707, 'max': 2.094},
+                    'right_w2' : {'min': -3.059, 'max': 3.059 }}
+            else:
+                raise ValueError("Arg arm must be 'right', 'left', or 'both'.")
         return joint_ranges
 
     def parse_action_dict(self, action_dict):
@@ -590,11 +626,14 @@ class Baxter(object):
         r_dict = {joint_name: action_dict[joint_name] for joint_name in self.right_arm.joint_names()}
         return l_dict, r_dict
 
-    def create_action_dict(self, action):
+    def create_action_dict(self, arm, action):
         """
         Creates an action dictionary
         {joint_name: joint_angle}
         """
+        if arm == 'left':
+            pass
+
         action_dict = dict()
         for i, act in enumerate(action):
             joint_name = self.joint_dict[i]
