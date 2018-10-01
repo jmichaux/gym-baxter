@@ -12,6 +12,7 @@ class PyBulletConfig():
         self.max_velocity = 0
         self.position_gain = 0
         self.velocity_gain = 0
+        self.target_velocity = 0
         self.nullspace = Nullspace()
         self.initial_pose = [
             # right arm
