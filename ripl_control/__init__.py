@@ -4,14 +4,14 @@ register(
         id='BaxterReacherEnv-v0',
         entry_point='ripl_control.envs.baxter_envs.reach:BaxterReacherEnv',
         kwargs={'sim': False},
-        max_episode_steps=200,
+        max_episode_steps=20,
 )
 
 register(
         id='BaxterReacherEnv-v1',
         entry_point='ripl_control.envs.baxter_envs.reach:BaxterReacherEnv',
         kwargs={'sim': True},
-        max_episode_steps=200,
+        max_episode_steps=20,
 )
 
 register(
