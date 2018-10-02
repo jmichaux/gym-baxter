@@ -1,9 +1,14 @@
 class Nullspace():
     def __init__(self):
-        self.ll = [-2] * 19
-        self.ul = [2] * 19
-        self.rp = [0] * 19
-        self.jr = [2] * 19
+        # self.ll = [-2] * 19
+        # self.ul = [2] * 19
+        # self.rp = [0] * 19
+        # self.jr = [2] * 19
+        # self.jd = None
+        self.ll = 0
+        self.ul = 0
+        self.rp = 0
+        self.jr = 0
         self.jd = None
 
 class PyBulletConfig():
