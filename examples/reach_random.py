@@ -16,15 +16,21 @@ from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 import ripl_control
+import pybullet as p
 
-env = gym.make('BaxterReacherEnv-v0')
+real_env = gym.make('BaxterReacherEnv-v0')
+sim_env = gym.make('BaxterReacherEnv-v1')
 
 for i in range(50):
-    obs = env.reset()
+    real_obs = real_env.reset()
+    sim_obs = sim_env.reset()
     done = False
-    total_reward = 0.0
+    total_real_reward = 0.0
+    total_sim_reward = 0.0
     while not done:
-        action = np.random.randint(0, env.action_space.n)
-        obs, reward, done, _ = env.step(action)
-        total_reward += reward
-    print("Episode {} end with Total Reward {}".format(i, total_reward))
+        action = np.random.randint(0, real_env.action_space.n)
+        obs, reward, done, _ = sim_env.step(action)
+        obs, reward, done, _ = real_env.step(action)
+        total_real_reward += reward
+        total_sim_reward += reward
+    # print("Episode {} end with Total Reward {}".format(i, total_reward))
