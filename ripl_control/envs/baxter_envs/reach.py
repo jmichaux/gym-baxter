@@ -36,7 +36,7 @@ class BaxterReacherEnv(RobotBaseEnv):
         self.random_start = random_start
         if self.sim:
             # TODO: Fix this
-            self._dv = 0.005
+            self._dv = 0.05
             self._action_repeat = 1
             self.config = PyBulletConfig()
             cid = p.connect(p.SHARED_MEMORY)
