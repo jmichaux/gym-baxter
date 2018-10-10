@@ -5,7 +5,10 @@
 Python 2.7 \
 PyBullet \
 ROS Kinetic \
-Baxter SDK 
+Baxter SDK \
+PyKDL
+baxter_pykdl
+
 
 ## Install
 
