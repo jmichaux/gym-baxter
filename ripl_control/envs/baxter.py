@@ -193,7 +193,7 @@ class Baxter(object):
             pose (list): [X, Y, Z, r, p, w]
             arm (string): "left" or "right"
         """
-        joints = self.calc_ik(arm, pose)
+        joints = self.ik(arm, pose)
         if arm == "left":
             if blocking:
                 self.left_arm.move_to_joint_positions(joints)
@@ -449,7 +449,7 @@ class Baxter(object):
             raise ValueError("Arg arm must be 'right' or 'left'")
         return pose[:3] + list(self.quat_to_euler(pose[3:]))
 
-    def calc_ik(self, arm, ee_pose):
+    def ik(self, arm, ee_pose):
         """
         Calculate inverse kinematics for a given end effector pose
 
