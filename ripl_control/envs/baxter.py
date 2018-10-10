@@ -5,6 +5,7 @@ import time
 import numpy as np
 
 import rospy
+from baxter_pykdl import baxter_kinematics
 import baxter_interface
 from baxter_interface import CHECK_VERSION, Limb, Gripper
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
@@ -149,9 +150,11 @@ class Baxter(object):
         else:
             self.left_arm = Limb("left")
             self.left_arm.gripper = Gripper("left")
+            self.left_arm.kin = baxter_kinematics("left")
 
             self.right_arm = Limb("right")
             self.right_arm.gripper = Gripper("right")
+            self.right_arm.kin = baxter_kinematics("right")
         return
 
     def calc_dof(self):
@@ -427,6 +430,25 @@ class Baxter(object):
                 pass
         return
 
+    def fk(self, arm, joints):
+        """
+        Calculate forward kinematics
+
+        Args
+            arm (str): 'right' or 'left'
+            joints (list): list of joint angles
+
+        Returns
+            pose(list): [x,y,z,r,p,w]
+        """
+        if arm == 'right':
+            pose = list(self.right_arm.kin.forward_position_kinematics(joints))
+        elif arm == 'left':
+            pose = list(self.left_arm.kin.forward_position_kinematics(joints))
+        else:
+            raise ValueError("Arg arm must be 'right' or 'left'")
+        return pose[:3] + list(self.quat_to_euler(pose[3:]))
+
     def calc_ik(self, arm, ee_pose):
         """
         Calculate inverse kinematics for a given end effector pose
@@ -552,11 +574,39 @@ class Baxter(object):
 
     def create_joint_range_dict(self, arm):
         if arm == "right":
-            joint_ranges = self.config.left_joint_ranges
+            joint_ranges = {
+                'right_s0' : {'min': -1.7016, 'max': 1.7016},
+                'right_s1' : {'min': -2.147, 'max': 2.147},
+                'right_e0' : {'min': -3.0541, 'max': 3.0541},
+                'right_e1' : {'min': -0.05, 'max': 2.618},
+                'right_w0' : {'min': -3.059, 'max': 3.059 },
+                'right_w1' : {'min': -1.5707, 'max': 2.094},
+                'right_w2' : {'min': -3.059, 'max': 3.059 }}
         elif arm == "left":
-            joint_ranges = self.config.right_joint_ranges
+            joint_ranges = {
+                'left_s0' : {'min': -1.7016, 'max': 1.7016},
+                'left_s1' : {'min': -2.147, 'max': 2.147},
+                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
+                'left_e1' : {'min': -0.05, 'max': 2.618},
+                'left_w0' : {'min': -3.059, 'max': 3.059 },
+                'left_w1' : {'min': -1.5707, 'max': 2.094},
+                'left_w2' : {'min': -3.059, 'max': 3.059}}
         elif arm == "both":
-            joint_ranges = self.config.all_joint_ranges
+            joint_ranges = {
+                'left_s0' : {'min': -1.7016, 'max': 1.7016},
+                'left_s1' : {'min': -2.147, 'max': 2.147},
+                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
+                'left_e1' : {'min': -0.05, 'max': 2.618},
+                'left_w0' : {'min': -3.059, 'max': 3.059 },
+                'left_w1' : {'min': -1.5707, 'max': 2.094},
+                'left_w2' : {'min': -3.059, 'max': 3.059},
+                'right_s0' : {'min': -1.7016, 'max': 1.7016},
+                'right_s1' : {'min': -2.147, 'max': 2.147},
+                'right_e0' : {'min': -3.0541, 'max': 3.0541},
+                'right_e1' : {'min': -0.05, 'max': 2.618},
+                'right_w0' : {'min': -3.059, 'max': 3.059 },
+                'right_w1' : {'min': -1.5707, 'max': 2.094},
+                'right_w2' : {'min': -3.059, 'max': 3.059 }}
         else:
             raise ValueError("Arg arm must be 'right', 'left', or 'both'.")
         return joint_ranges
