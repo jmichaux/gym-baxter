@@ -72,5 +72,5 @@ class ROSConfig():
             'right_w2' : {'min': -3.059, 'max': 3.059 }}
         self.initial_pose = None
 
-    def set_random_pose(self):
+    def get_random_pose(self):
         pass
