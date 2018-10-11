@@ -246,10 +246,16 @@ class Baxter(object):
         Returns
             pose (list): Euler angles [X,Y,Z,r,p,w] or Quaternion [X,Y,Z,x,y,z,w]
         """
-        pos = self.get_ee_position(arm)
-        orn = self.get_ee_orientation(arm, mode)
-        return pos + orn
-
+        if arm == 'left' or arm == 'right':
+            pos = self.get_ee_position(arm)
+            orn = self.get_ee_orientation(arm, mode)
+            return pos + orn
+        elif arm == 'both':
+            l_pos = self.get_ee_position('left')
+            l_orn = self.get_ee_orientation('left', mode)
+            r_pos = self.get_ee_position('right')
+            r_orn = self.get_ee_orientation('right', mode)
+            return l_pos + l_orn + r_pos + r_orn
     def get_ee_position(self, arm):
         """
         Returns end effector position for specified arm.
