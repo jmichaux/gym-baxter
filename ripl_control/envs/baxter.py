@@ -209,8 +209,8 @@ class Baxter(object):
         if arm == "both":
             left_pose = pose[:6]
             right_pose = pose[6:]
-            left_joints = self.ik('left', left_joints)
-            right_joints = self.ik('right', right_joints)
+            left_joints = self.ik('left', left_pose)
+            right_joints = self.ik('right', right_pose)
             if blocking:
                 self.left_arm.move_to_joint_positions(left_joints)
                 self.right_arm.move_to_joint_positions(right_joints)
@@ -224,11 +224,11 @@ class Baxter(object):
             else:
                 self.left_arm.set_joint_positions(joints)
         elif arm == "right":
-            if arm == "right":
-                if blocking:
-                    self.right_arm.move_to_joint_positions(joints)
-                else:
-                    self.right_arm.set_joint_positions(joints)
+            joints = self.ik(arm, pose)
+            if blocking:
+                self.right_arm.move_to_joint_positions(joints)
+            else:
+                self.right_arm.set_joint_positions(joints)
         else:
             raise ValueError("Arm must be 'right', 'left', or 'both'")
         return
@@ -256,6 +256,7 @@ class Baxter(object):
             r_pos = self.get_ee_position('right')
             r_orn = self.get_ee_orientation('right', mode)
             return l_pos + l_orn + r_pos + r_orn
+
     def get_ee_position(self, arm):
         """
         Returns end effector position for specified arm.
