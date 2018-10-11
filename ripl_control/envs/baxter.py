@@ -156,9 +156,6 @@ class Baxter(object):
         Create arm interface objects for Baxter.
 
         An arm consists of a Limb and its Gripper.
-
-        Args
-            arm (str): "right", "left", "both"
         """
         # create arm objects
         if self.sim:
@@ -393,6 +390,33 @@ class Baxter(object):
         elif arm == 'left':
             return self.left_arm
 
+    def _apply_torque_control(self, arm, action):
+        """
+        As of right now, setting joint torques does not
+        does not command the robot as expected
+        """
+        raise NotImplementedError('Cannot apply torque control. Try using joint position or velocity control')
+
+    def _apply_velocity_control(self, arm, action):
+        """
+        Apply velocity control to a given arm
+
+        Args
+            arm (str): 'right' or 'left'
+            action (list, tuple, or numpy array) of len 7
+        """
+        if self.sim:
+            pass
+        else:
+            if arm == 'left':
+                action_dict = self
+                self.right_arm.set_joint_velocities
+            if arm == 'right':
+                pass
+            if arm == 'both':
+                pass
+        return
+
     def _apply_position_control(self, arm, action):
         """
         Apply a joint action
@@ -477,6 +501,7 @@ class Baxter(object):
             arm (str): 'right' or 'left'
             pos (list): [X, Y, Z]
             orn (list): [r, p, w]
+            seed (int): for setting random seed
 
         Returns
             joint angles (list): A list of joint angles
@@ -585,26 +610,6 @@ class Baxter(object):
         except (rospy.ServiceException, rospy.ROSException), e:
             # rospy.logerr("Service call failed: %s" % (e,))
             return
-
-    def _apply_velocity_control(self, arm, action):
-        """
-        Apply velocity control to a given arm
-
-        Args
-            arm (str): 'right' or 'left'
-            action (list, tuple, or numpy array) of len 7
-        """
-        if arm == 'left':
-            self.right_arm.set_joint_velocities
-
-        return
-
-    def _apply_torque_control(self, arm, action):
-        """
-        As of right now, setting joint torques does not
-        does not command the robot as expected
-        """
-        raise NotImplementedError('Cannot apply torque control. Try using joint position or velocity control')
 
     def create_joint_dicts(self, arm):
         """
