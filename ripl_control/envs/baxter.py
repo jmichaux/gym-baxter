@@ -543,7 +543,17 @@ class Baxter(object):
             # rospy.logerr("Service call failed: %s" % (e,))
             return
 
-    def _apply_velocity_control(self, action):
+    def _apply_velocity_control(self, arm, action):
+        """
+        Apply velocity control to a given arm
+
+        Args
+            arm (str): 'right' or 'left'
+            action (list, tuple, or numpy array) of len 7
+        """
+        if arm == 'left':
+            self.right_arm.set_joint_velocities
+
         return
 
     def _apply_torque_control(self, arm, action):
@@ -625,16 +635,23 @@ class Baxter(object):
         Creates an action dictionary
         {joint_name: joint_angle}
         """
-        if arm == 'left':
-            pass
-
+        if self.control == CONTROL.POSITION:
+            if arm == 'left':
+                joint_ranges = self.joint_position_ranges['left']
+            else:
+                joint_ranges = self.joint_position_ranges['right']
+        if self.control == CONTROL.VELOCITY:
+            if arm == 'left':
+                joint_ranges = self.joint_velocity_ranges['left']
+            else:
+                joint_ranges = self.joint_velocity_ranges['right']
         action_dict = dict()
         for i, act in enumerate(action):
             joint_name = self.joint_dict[i]
-            if act < self.joint_ranges[joint_name]['min']:
-                act = self.joint_ranges[joint_name]['min']
-            if act > self.joint_ranges[joint_name]['max']:
-                act = self.joint_ranges[joint_name]['max']
+            if act < joint_ranges[joint_name]['min']:
+                act = joint_ranges[joint_name]['min']
+            if act > joint_ranges[joint_name]['max']:
+                act = joint_ranges[joint_name]['max']
             action_dict[joint_name] = act
         return action_dict
 
