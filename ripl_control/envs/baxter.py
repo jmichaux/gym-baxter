@@ -29,8 +29,6 @@ class Baxter(object):
     """
     def __init__(self,
                  sim=False,
-                 arm="right",
-                 control=CONTROL.EE,
                  config=None,
                  time_step=1.0,
                  rate=100.0,
@@ -50,14 +48,12 @@ class Baxter(object):
             rate (float):
             missed_cmds (float):
         """
-        self.set_control(control)
         self.sim = sim
-        self.arm_name = arm
-        if self.arm_name == "both":
-            self.num_arms = 2
-        else:
-            self.num_arms = 1
-        self.dof = self.calc_dof()
+        self.dof = {
+            'left': {'ee': 6, 'position': 7, 'velocity': 7},
+            'right': {'ee': 6, 'position': 7, 'velocity': 7},
+            'both': {'ee': 12, 'position': 14, 'velocity': 14}}
+            }
 
         if self.sim:
             self.baxter_path = "/home/ripl/ripl-control/ripl_control/envs/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
@@ -117,6 +113,7 @@ class Baxter(object):
         else:
             self._reset_real(initial_pose)
         # create joint dictionaries
+        # TODO: WHY DO I DO THIS AGAIN?
         self.create_joint_dicts(arm="right")
         self.create_joint_dicts(arm="left")
 
@@ -128,12 +125,16 @@ class Baxter(object):
             pass
         self.calibrate_grippers()
 
-    def _reset_sim(self, initial_pose=None):
+    def _reset_sim(self, control_type=None, initial_pose=None):
         # set control type
-        if self.control == CONTROL.EE:
-            control_mode = CONTROL.POSITION
+        if control_type == 'position' or control_type == 'ee' or control_type is None:
+            control_mode = p.POSITION_CONTROL
+        elif control_type == 'velocity':
+            control_mode = p.VELOCITY_CONTROL
+        elif control_mode == 'torque':
+            control_mode = p.TORQUE_CONTROL
         else:
-            control_mode = self.control
+            raise ValueError("control_type must be in ['position', 'ee', 'velocity', 'torque']." )
         # set initial position
         if initial_pose:
             for joint_index, joint_val in initial_pose:
@@ -207,20 +208,38 @@ class Baxter(object):
         Move end effector to specified pose
 
         Args
-            pose (list): [X, Y, Z, r, p, w]
-            arm (string): "left" or "right"
+            arm (string): "left" or "right" or "both"
+            pose (list):
+                if arm == 'left' or arm == 'right':
+                    pose = [X, Y, Z, r, p, w]
+                else:
+                    pose = left_pose + right _pose
         """
-        joints = self.ik(arm, pose)
-        if arm == "left":
+        if arm == "both":
+            left_pose = pose[:6]
+            right_pose = pose[6:]
+            left_joints = self.ik('left', left_joints)
+            right_joints = self.ik('right', right_joints)
+            if blocking:
+                self.left_arm.move_to_joint_positions(left_joints)
+                self.right_arm.move_to_joint_positions(right_joints)
+            else:
+                self.left_arm.set_joint_positions(left_joints)
+                self.right_arm.set_joint_positions(right_joints)
+        elif arm == "left":
+            joints = self.ik(arm, pose)
             if blocking:
                 self.left_arm.move_to_joint_positions(joints)
             else:
                 self.left_arm.set_joint_positions(joints)
+        elif arm == "right":
+            if arm == "right":
+                if blocking:
+                    self.right_arm.move_to_joint_positions(joints)
+                else:
+                    self.right_arm.set_joint_positions(joints)
         else:
-            if blocking:
-                self.right_arm.move_to_joint_positions(joints)
-            else:
-                self.right_arm.set_joint_positions(joints)
+            raise ValueError("Arm must be 'right', 'left', or 'both'")
         return
 
     def get_ee_pose(self, arm, mode=None):
