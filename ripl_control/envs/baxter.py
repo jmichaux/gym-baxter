@@ -23,6 +23,10 @@ class CONTROL(IntEnum):
     EE = 3
 
 class Baxter(object):
+    """
+    Baxter interface for doing RL experiments on real and simulated
+    robots.
+    """
     def __init__(self,
                  sim=False,
                  arm="right",
@@ -31,6 +35,21 @@ class Baxter(object):
                  time_step=1.0,
                  rate=100.0,
                  missed_cmds=20000.0):
+        """
+        Initialize Baxter Interface
+
+        Args:
+            sim (bool): True specifies using the PyBullet simulator
+                False specifies using the real robot
+            arm (str): 'right' or 'left'
+            control (int): Specifies control type
+                TODO: change to str ['ee', 'position', 'velocity']
+            config (class): Specifies joint ranges, ik null space paramaters, etc
+            time_step (float):
+                TODO: probably get rid of this
+            rate (float):
+            missed_cmds (float):
+        """
         self.set_control(control)
         self.sim = sim
         self.arm_name = arm
@@ -42,6 +61,7 @@ class Baxter(object):
 
         if self.sim:
             self.baxter_path = "/home/ripl/ripl-control/ripl_control/envs/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
+            # self.baxter_path = "/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
             self.time_step = time_step
         else:
             self.rate = rate
@@ -449,6 +469,30 @@ class Baxter(object):
             raise ValueError("Arg arm must be 'right' or 'left'")
         return pose[:3] + list(self.quat_to_euler(pose[3:]))
 
+    def _ik(self, arm, pos, orn=None, seed=None):
+        """
+        Calculate inverse kinematics
+
+        Args
+            arm (str): 'right' or 'left'
+            pos (list): [X, Y, Z]
+            orn (list): [r, p, w]
+
+        Returns
+            joint angles (list): A list of joint angles
+
+        Note: This will probably fail if orn is not included
+        """
+        if orn is not None:
+            orn = list(self.euler_to_quat(orn))
+        if arm == 'right':
+            joint_angles = self.right_arm.kin.inverse_kinematics(pos, orn)
+        elif arm == 'left':
+            joint_angles = self.left_arm.kin.inverse_kinematics(pos, orn, seed)
+        else:
+            raise ValueError("Arg arm must be 'right' or 'left'")
+        return list(joint_angles.tolist())
+
     def ik(self, arm, ee_pose):
         """
         Calculate inverse kinematics for a given end effector pose
@@ -461,11 +505,10 @@ class Baxter(object):
         Return
             joints (list): A list of joint angles
         """
-        new_pose = np.array(self.get_ee_pose(arm)) + np.array(ee_pose)
         if self.sim:
-            joints = self._sim_ik(arm, new_pose)
+            joints = self._sim_ik(arm, ee_pose)
         else:
-            joints = self._real_ik(arm, new_pose)
+            joints = self._real_ik(arm, ee_pose)
         if not joints:
             print("IK failed. Try running again or changing the pose.")
         return joints
