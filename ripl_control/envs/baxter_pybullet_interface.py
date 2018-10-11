@@ -84,82 +84,82 @@ class Limb(object):
         self.move_to_joint_positions(joints)
         return
 
-    # def set_joint_velocities(self,
-    #                          joints_velocities,
-    #                          target_positions=self.config.target_positions,
-    #                          max_force=self.config.max_force,
-    #                          max_velocity=self.config.max_velocity,
-    #                          position_gain=self.config.position_gain,
-    #                          velocity_gain=self.config.velocity_gain):
-    #
-    #     """
-    #     Args
-    #         joints (list)
-    #     """
-    #     joint_indices, velocities = joints_dict.keys(), joints_dict.value()
-    #     p.setJointMotorControlArray(bodyUniqueId=self.baxter_id,
-    #                                 jointIndices=self.joint_indices,
-    #                                 controlMode=p.VELOCITY_CONTROL,
-    #                                 targetPositions=target_positions,
-    #                                 targetVelocity=joint_velocities,
-    #                                 force=max_force,
-    #                                 maxVelocity=max_velocity,
-    #                                 positionGain=position_gain,
-    #                                 velocityGain=velocity_gain)
-    #     return
-    #
-    # def set_joint_torques(self,
-    #                       joint_torques,
-    #                       target_positions=self.config.target_positions,
-    #                       target_velocity=self.config.target_velocity,
-    #                       max_force=self.config.max_force,
-    #                       max_velocity=self.config.max_velocity,
-    #                       position_gain=self.config.position_gain,
-    #                       velocity_gain=self.config.velocity_gain):
-    #
-    #
-    #     """
-    #     Args
-    #         joints (list): List of joint position values
-    #     """
-    #     p.setJointMotorControlArray(bodyUniqueId=self.baxter_id,
-    #                                 jointIndices=self.joint_indices,
-    #                                 controlMode=p.TORQUE_CONTROL,
-    #                                 targetPositions=target_positions,
-    #                                 targetVelocity=target_velocity,
-    #                                 force=joint_torques,
-    #                                 maxVelocity=max_velocity,
-    #                                 positionGain=position_gain,
-    #                                 velocityGain=velocity_gain)
-    #     return
-
     def move_to_neutral(self):
         initial_pose = self.config.initial_pose
         for joint_index, joint_val in initial_pose:
             p.resetJointState(self.baxter_id, joint_index, joint_val)
             p.setJointMotorControl2(baxter, joint_index, p.POSITION_CONTROL, joint_val, force=self.max_force)
+        return
 
     def move_to_joint_positions(self, joint_angles):
+        """
+        Args
+            joints (list): List of joint position values
+        """
         joint_indices=self.joint_indices
-        target_velocity=self.config.target_velocity
+        target_velocities=self.config.target_velocities
+        max_forces=self.config.max_forces
+        max_velocity=self.config.max_velocity
+        position_gains=self.config.position_gains
+        velocity_gains=self.config.velocity_gains
+        joint_indices = [5, 12, 13, 14, 15, 16, 18, 19, 27, 29, 34, 35, 36, 37, 38, 40, 41, 49, 51]
+
+        p.setJointMotorControlArray(bodyIndex=self.baxter_id,
+                                    jointIndices=joint_indices,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPositions=joint_angles)
+                                    # targetVelocities=target_velocities,
+                                    # forces=max_forces,
+                                    # positionGains=position_gains,
+                                    # velocityGains=velocity_gains)
+        return
+
+    def set_joint_velocities(self, joints_velocities):
+        """
+        Args
+            joints (list)
+        """
+        target_positions=self.config.target_positions
         max_force=self.config.max_force
         max_velocity=self.config.max_velocity
         position_gain=self.config.position_gain
         velocity_gain=self.config.velocity_gain
         joint_indices = [5, 12, 13, 14, 15, 16, 18, 19, 27, 29, 34, 35, 36, 37, 38, 40, 41, 49, 51]
+
+        p.setJointMotorControlArray(bodyUniqueId=self.baxter_id,
+                                    jointIndices=joint_indices,
+                                    controlMode=p.VELOCITY_CONTROL,
+                                    targetPositions=target_positions,
+                                    targetVelocity=joint_velocities,
+                                    force=max_force,
+                                    maxVelocity=max_velocity,
+                                    positionGain=position_gain,
+                                    velocityGain=velocity_gain)
+        return
+
+    def set_joint_torques(self,joint_torques):
         """
         Args
             joints (list): List of joint position values
         """
-        p.setJointMotorControlArray(bodyIndex=self.baxter_id,
-                                    jointIndices=joint_indices,
-                                    controlMode=p.POSITION_CONTROL,
-                                    targetPositions=joint_angles)
-                                    # targetVelocities=target_velocity,
-                                    # forces=max_force,
-                                    # positionGains=position_gain,
-                                    # velocityGains=velocity_gain)
-        return
+        # target_positions=self.config.target_positions
+        # target_velocity=self.config.target_velocity
+        # max_force=self.config.max_force
+        # max_velocity=self.config.max_velocity
+        # position_gain=self.config.position_gain
+        # velocity_gain=self.config.velocity_gain
+
+        # p.setJointMotorControlArray(bodyUniqueId=self.baxter_id,
+        #                             jointIndices=self.joint_indices,
+        #                             controlMode=p.TORQUE_CONTROL,
+        #                             targetPositions=target_positions,
+        #                             targetVelocity=target_velocity,
+        #                             force=joint_torques,
+        #                             maxVelocity=max_velocity,
+        #                             positionGain=position_gain,
+        #                             velocityGain=velocity_gain)
+        raise NotImplementedError('Who do you think you are setting joint torques all willy-nilly. \
+                                  Use position or velocity control instead')
 
 class Gripper(object):
     def __init__(self, baxter_id, gripper):
