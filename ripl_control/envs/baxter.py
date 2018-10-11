@@ -175,15 +175,6 @@ class Baxter(object):
             self.right_arm.kin = baxter_kinematics("right")
         return
 
-    def calc_dof(self):
-        """
-        Number of degrees of freedom
-        """
-        if self.control == CONTROL.EE:
-            return 6 * self.num_arms
-        else:
-            return 7 * self.num_arms
-
     def calibrate_grippers(self):
         """
         (Blocking) Calibrates gripper(s) if not
