@@ -343,7 +343,7 @@ class Baxter(object):
             joint_efforts = joint_efforts.values()
         return
 
-    def apply_action(self, arm, action):
+    def apply_action(self, arm, control_type, action):
         """
         Apply a joint action
 
@@ -354,20 +354,20 @@ class Baxter(object):
                     or joint angles (7DOF * num_arms)
         """
         # verify action
-        verified, err = self._verify_action(arm, action)
+        verified, err = self._verify_action(arm, control_type, action)
         if not verified:
             raise err
         # execute action
-        if self.control == CONTROL.POSITION:
+        if control_type == 'position':
             self._apply_position_control(arm, action)
-        elif self.control == CONTROL.EE:
+        elif control_type == 'ee':
             self._apply_ee_control(arm, action)
-        elif self.control == CONTROL.VELOCITY:
+        elif control_type == 'velocity':
             self._apply_velocity_control(arm, action)
         else:
             self._apply_torque_control(arm, action)
 
-    def _verify_action(self, arm, action):
+    def _verify_action(self, arm, control_type, action):
         """
         Verify type and dimension of action
 
@@ -379,15 +379,12 @@ class Baxter(object):
             bool: True if action is right dimension, false otherwise
         """
         if arm not in ["left", "right", "both"]:
-            return False, ValueError("Arg name must be string")
+            return False, ValueError("Arg arm must be string")
+        if control_type not in ['ee', 'position', 'velocity', 'torque']:
+            return False, ValueError("Arg control_type must be one of ['ee', 'position', 'velocity', 'torque']")
         if not isinstance(action, (list, tuple, np.ndarray)):
             return False, TypeError("Action must be a list or tuple.")
-        # check action has right size
-        if arm == "both":
-            num_arms = 2
-        else:
-            num_arms = 1
-        if len(action) != self.dof * num_arms:
+        if len(action) != self.dof[arm][control_type]:
             return False, ValueError("Action must have len {}".format(self.dof * num_arms))
         return True, ""
 
