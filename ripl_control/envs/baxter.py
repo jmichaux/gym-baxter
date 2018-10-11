@@ -694,21 +694,15 @@ class Baxter(object):
         r_dict = {joint_name: action_dict[joint_name] for joint_name in self.right_arm.joint_names()}
         return l_dict, r_dict
 
-    def create_action_dict(self, arm, action):
+    def create_action_dict(self, arm, control_type, action):
         """
         Creates an action dictionary
         {joint_name: joint_angle}
         """
-        if self.control == CONTROL.POSITION:
-            if arm == 'left':
-                joint_ranges = self.joint_position_ranges['left']
-            else:
-                joint_ranges = self.joint_position_ranges['right']
-        if self.control == CONTROL.VELOCITY:
-            if arm == 'left':
-                joint_ranges = self.joint_velocity_ranges['left']
-            else:
-                joint_ranges = self.joint_velocity_ranges['right']
+        if control_type == 'position':
+            joint_ranges = self.config.joint_position_ranges[arm]
+        if control_type == 'velocity':
+            joint_ranges = self.config.joint_velocity_ranges[arm]    
         action_dict = dict()
         for i, act in enumerate(action):
             joint_name = self.joint_dict[i]
