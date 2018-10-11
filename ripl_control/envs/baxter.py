@@ -52,7 +52,7 @@ class Baxter(object):
         self.dof = {
             'left': {'ee': 6, 'position': 7, 'velocity': 7},
             'right': {'ee': 6, 'position': 7, 'velocity': 7},
-            'both': {'ee': 12, 'position': 14, 'velocity': 14}}
+            'both': {'ee': 12, 'position': 14, 'velocity': 14}
             }
 
         if self.sim:
@@ -364,8 +364,10 @@ class Baxter(object):
             self._apply_ee_control(arm, action)
         elif control_type == 'velocity':
             self._apply_velocity_control(arm, action)
-        else:
+        elif control_type == 'torque':
             self._apply_torque_control(arm, action)
+        else:
+            raise ValueError("Control type must be ['ee', 'position', 'velocity', 'torque']")
 
     def _verify_action(self, arm, control_type, action):
         """
