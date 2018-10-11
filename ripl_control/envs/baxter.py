@@ -397,12 +397,6 @@ class Baxter(object):
             return False, ValueError("Action must have len {}".format(self.dof * num_arms))
         return True, ""
 
-    def get_arm(self, arm):
-        if arm == 'right':
-            return self.right_arm
-        elif arm == 'left':
-            return self.left_arm
-
     def _apply_torque_control(self, arm, action):
         """
         As of right now, setting joint torques does not
