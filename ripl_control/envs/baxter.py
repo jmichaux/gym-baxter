@@ -66,21 +66,6 @@ class Baxter(object):
         self.config=config
         self.initial_setup()
 
-    def set_control(self, control):
-        """
-        Sets the control type for Baxter in simulation or the real robot
-        Args: control - string or int
-        """
-        if control in ["position", "joint_positions", "joint_angles", CONTROL.POSITION]  or control == None:
-            self.control = CONTROL.POSITION
-        elif control == "velocity" or control == CONTROL.VELOCITY:
-            self.control = CONTROL.VELOCITY
-        elif control == "torque" or control == CONTROL.TORQUE:
-            self.control = CONTROL.TORQUE
-        else:
-            self.control = CONTROL.EE
-        return
-
     def set_command_time_out(self):
         self.left_arm.set_command_timeout(self.freq * self.missed_cmds)
         self.right_arm.set_command_timeout(self.freq * self.missed_cmds)
