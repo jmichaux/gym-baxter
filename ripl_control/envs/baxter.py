@@ -546,8 +546,12 @@ class Baxter(object):
     def _apply_velocity_control(self, action):
         return
 
-    def _apply_torque_control(self, action):
-        return
+    def _apply_torque_control(self, arm, action):
+        """
+        As of right now, setting joint torques does not
+        does not command the robot as expected
+        """
+        raise NotImplementedError('Cannot apply torque control. Try using joint position or velocity control')
 
     def create_joint_dicts(self, arm):
         """
