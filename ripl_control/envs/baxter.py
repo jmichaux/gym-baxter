@@ -409,42 +409,50 @@ class Baxter(object):
                 pass
         return
 
-    def _apply_position_control(self, arm, action):
+    def _apply_position_control(self, arm, action, blocking=True):
         """
         Apply a joint action
-        Inputs:
+        Args:
+            arm (str): 'right', 'left', or 'both'
             action - list or array of joint angles
-        Blocking when moving the arm
+            blocking (bool):
         """
         action = list(action)
-        if self.sim:
-            if arm == 'left':
-                self.left_arm.move_to_joint_positions(action)
-            elif arm == 'right':
-                self.right_arm.move_to_joint_positions(action)
-            elif arm == 'both':
+        if arm == 'both':
+            if self.sim:
                 joint_indices = self.left_arm.indices + self.right_arm.indices
                 self.left_arm.move_to_joint_positions(action, joint_indices)
-        else:
-            if arm == 'both':
-                    l_action = action[:7]
-                    r_action = action[7:]
-                    l_action_dict = self.create_action_dict('left', l_action)
-                    r_action_dict = self.create_action_dict('right', r_action)
-                    self.left_arm.set_joint_positions(l_action_dict)
+            else:
+                l_action = action[:7]
+                r_action = action[7:]
+                l_action_dict = self.create_action_dict('left', 'position', l_action)
+                r_action_dict = self.create_action_dict('right', 'position', r_action)
+                if blocking:
+                    self.left_arm.move_to_joint_positions(l_action_dict)
                     self.right_arm.move_to_joint_positions(r_action_dict)
-            if arm == 'left':
-                if self.sim:
-                    self.left_arm.move_to_joint_positions(action)
                 else:
-                    action_dict = self.create_action_dict(arm, action)
+                    self.left_arm.set_joint_positions(l_action_dict)
+                    self.right_arm.set_joint_positions(r_action_dict)
+        elif arm == 'left':
+            if self.sim:
+                self.left_arm.move_to_joint_positions(action)
+            else:
+                action_dict = self.create_action_dict(arm, 'position', action)
+                if blocking:
+                    self.left_arm.move_to_joint_positions(action_dict)
+                else:
                     self.left_arm.set_joint_positions(action_dict)
-            if arm == 'right':
-                if self.sim:
-                    self.right_arm.move_to_joint_positions(action)
+        elif arm == 'right':
+            if self.sim:
+                self.right_arm.move_to_joint_positions(action)
+            else:
+                action_dict = self.create_action_dict(arm, 'position', action)
+                if blocking:
+                    self.right_arm.move_to_joint_positions(action_dict)
                 else:
-                    action_dict = self.create_action_dict(arm, action)
                     self.right_arm.set_joint_positions(action_dict)
+        else:
+            raise ValueError("Arm must be 'right', 'left', or 'both'.")
         return
 
     def _apply_ee_control(self, arm, action, blocking=True):
