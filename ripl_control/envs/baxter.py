@@ -175,6 +175,32 @@ class Baxter(object):
     def shutdown(self):
         pass
 
+    def move_to_joint_positions(self, arm, joint_positions):
+        """
+        Move specified arm to give joint positions
+
+        (This function is blocking.)
+
+        Args
+            arm (str): 'left' or 'right' or 'both'
+            joint_positionns (list or tuple or numpy array):
+                Array of len 7 or 14
+        """
+        if arm == 'left':
+            action_dict = self.create_action_dict('left', 'position', joint_positions)
+            self.left_arm.move_to_joint_positions(action_dict)
+        elif arm == 'right':
+            action_dict = self.create_action_dict('right', 'position', joint_positions)
+            self.right_arm.move_to_joint_positions(action_dict)
+        elif arm == 'both':
+            l_joints = joint_positions[:7]
+            r_joints = joint_positions[7:]
+            l_action_dict = self.create_action_dict('left', 'position', l_joints)
+            r_action_dict = self.create_action_dict('right', 'position', r_joints)
+            self.left_arm.move_to_joint_positions(l_action_dict)
+            self.right_arm.move_to_joint_positions(r_action_dict)
+        return
+
     def move_to_ee_pose(self, arm, pose, blocking=True):
         """
         Move end effector to specified pose
@@ -414,41 +440,10 @@ class Baxter(object):
             blocking (bool): If true, wait for arm(s) to reach final position(s)
         """
         action = list(action)
-        if arm == 'both':
-            if self.sim:
-                joint_indices = self.left_arm.indices + self.right_arm.indices
-                self.left_arm.move_to_joint_positions(action, joint_indices)
-            else:
-                l_action = action[:7]
-                r_action = action[7:]
-                l_action_dict = self.create_action_dict('left', 'position', l_action)
-                r_action_dict = self.create_action_dict('right', 'position', r_action)
-                if blocking:
-                    self.left_arm.move_to_joint_positions(l_action_dict)
-                    self.right_arm.move_to_joint_positions(r_action_dict)
-                else:
-                    self.left_arm.set_joint_positions(l_action_dict)
-                    self.right_arm.set_joint_positions(r_action_dict)
-        elif arm == 'left':
-            if self.sim:
-                self.left_arm.move_to_joint_positions(action)
-            else:
-                action_dict = self.create_action_dict(arm, 'position', action)
-                if blocking:
-                    self.left_arm.move_to_joint_positions(action_dict)
-                else:
-                    self.left_arm.set_joint_positions(action_dict)
-        elif arm == 'right':
-            if self.sim:
-                self.right_arm.move_to_joint_positions(action)
-            else:
-                action_dict = self.create_action_dict(arm, 'position', action)
-                if blocking:
-                    self.right_arm.move_to_joint_positions(action_dict)
-                else:
-                    self.right_arm.set_joint_positions(action_dict)
+        if blocking:
+            self.set_joint_positions(arm, action)
         else:
-            raise ValueError("Arm must be 'right', 'left', or 'both'.")
+            self.move_to_joint_positions(arm, action)
         return
 
     def _apply_ee_control(self, arm, action, blocking=True):
@@ -661,7 +656,11 @@ class Baxter(object):
         return
 
     def sample_random_position(self, arm):
-        pass
+        if arm == 'both':
+            pass
+        else:
+            pass
+        return
 
     def sample_random_pose(self, arm):
         pass
