@@ -201,6 +201,32 @@ class Baxter(object):
             self.right_arm.move_to_joint_positions(r_action_dict)
         return
 
+    def set_joint_positions(self, arm, joint_positions):
+        """
+        Move specified arm to give joint positions
+
+        (This function is not blocking.)
+
+        Args
+            arm (str): 'left' or 'right' or 'both'
+            joint_positionns (list or tuple or numpy array):
+                Array of len 7 or 14
+        """
+        if arm == 'left':
+            action_dict = self.create_action_dict('left', 'position', joint_positions)
+            self.left_arm.set_joint_positions(action_dict)
+        elif arm == 'right':
+            action_dict = self.create_action_dict('right', 'position', joint_positions)
+            self.right_arm.set_joint_positions(action_dict)
+        elif arm == 'both':
+            l_joints = joint_positions[:7]
+            r_joints = joint_positions[7:]
+            l_action_dict = self.create_action_dict('left', 'position', l_joints)
+            r_action_dict = self.create_action_dict('right', 'position', r_joints)
+            self.left_arm.set_joint_positions(l_action_dict)
+            self.right_arm.set_joint_positions(r_action_dict)
+        return
+
     def move_to_ee_pose(self, arm, pose, blocking=True):
         """
         Move end effector to specified pose
