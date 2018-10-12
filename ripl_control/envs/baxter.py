@@ -636,45 +636,6 @@ class Baxter(object):
         joint_dict = dict(zip(inds, joints))
         return joint_dict
 
-    def create_joint_range_dict(self, arm):
-        if arm == "right":
-            joint_ranges = {
-                'right_s0' : {'min': -1.7016, 'max': 1.7016},
-                'right_s1' : {'min': -2.147, 'max': 2.147},
-                'right_e0' : {'min': -3.0541, 'max': 3.0541},
-                'right_e1' : {'min': -0.05, 'max': 2.618},
-                'right_w0' : {'min': -3.059, 'max': 3.059 },
-                'right_w1' : {'min': -1.5707, 'max': 2.094},
-                'right_w2' : {'min': -3.059, 'max': 3.059 }}
-        elif arm == "left":
-            joint_ranges = {
-                'left_s0' : {'min': -1.7016, 'max': 1.7016},
-                'left_s1' : {'min': -2.147, 'max': 2.147},
-                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
-                'left_e1' : {'min': -0.05, 'max': 2.618},
-                'left_w0' : {'min': -3.059, 'max': 3.059 },
-                'left_w1' : {'min': -1.5707, 'max': 2.094},
-                'left_w2' : {'min': -3.059, 'max': 3.059}}
-        elif arm == "both":
-            joint_ranges = {
-                'left_s0' : {'min': -1.7016, 'max': 1.7016},
-                'left_s1' : {'min': -2.147, 'max': 2.147},
-                'left_e0' : {'min': -3.0541, 'max': 3.0541 },
-                'left_e1' : {'min': -0.05, 'max': 2.618},
-                'left_w0' : {'min': -3.059, 'max': 3.059 },
-                'left_w1' : {'min': -1.5707, 'max': 2.094},
-                'left_w2' : {'min': -3.059, 'max': 3.059},
-                'right_s0' : {'min': -1.7016, 'max': 1.7016},
-                'right_s1' : {'min': -2.147, 'max': 2.147},
-                'right_e0' : {'min': -3.0541, 'max': 3.0541},
-                'right_e1' : {'min': -0.05, 'max': 2.618},
-                'right_w0' : {'min': -3.059, 'max': 3.059 },
-                'right_w1' : {'min': -1.5707, 'max': 2.094},
-                'right_w2' : {'min': -3.059, 'max': 3.059 }}
-        else:
-            raise ValueError("Arg arm must be 'right', 'left', or 'both'.")
-        return joint_ranges
-
     def create_action_dict(self, arm, control_type, action):
         """
         Creates an action dictionary
