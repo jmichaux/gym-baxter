@@ -67,8 +67,14 @@ class Baxter(object):
         self.initial_setup()
 
     def set_command_time_out(self):
-        self.left_arm.set_command_timeout(self.freq * self.missed_cmds)
-        self.right_arm.set_command_timeout(self.freq * self.missed_cmds)
+        """
+        Set command timeout for sending ROS commands
+        """
+        if self.sim:
+            pass
+        else:
+            self.left_arm.set_command_timeout(self.freq * self.missed_cmds)
+            self.right_arm.set_command_timeout(self.freq * self.missed_cmds)
         return
 
     def initial_setup(self):
