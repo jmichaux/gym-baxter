@@ -678,7 +678,7 @@ class Baxter(object):
                 initial_position = self.sample_random_position(arm)
             else:
                 initial_position = self.config.initial_joint_positions[arm]
-        self.move_to_joint_positions(initial_position)
+        self.move_to_joint_positions(arm, initial_position)
         return
 
     def sample_random_position(self, arm):
