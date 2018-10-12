@@ -100,6 +100,7 @@ class Baxter(object):
 
     def _reset_real(self, initial_pose=None):
         self.enable()
+        time.sleep(0.5)
         self.set_initial_position('both')
         self.calibrate_grippers()
 
@@ -171,6 +172,30 @@ class Baxter(object):
 
     def shutdown(self):
         pass
+
+    def set_joint_velocities(self, arm, joint_velocities):
+        """
+        Set joint velocites for a given arm
+
+        Args
+            arm (str): 'left' or 'right' or 'both'
+            joint_velocities (list or tuple or numpy array):
+                Array of len 7 or 14
+        """
+        if arm == 'left':
+            action_dict = self.create_action_dict('left', 'velocity', joint_velocities)
+            self.left_arm.set_joint_velocities(action_dict)
+        elif arm == 'right':
+            action_dict = self.create_action_dict('right', 'velocity', joint_velocities)
+            self.right_arm.set_joint_velocities(action_dict)
+        elif arm == 'both':
+            l_velocities = joint_velocities[:7]
+            r_velocities = joint_velocities[7:]
+            l_action_dict = self.create_action_dict('left', 'velocity', l_velocities)
+            r_action_dict = self.create_action_dict('right', 'velocity', r_velocities)
+            self.left_arm.set_joint_velocities(l_action_dict)
+            self.right_arm.set_joint_velocities(r_action_dict)
+        return
 
     def move_to_joint_positions(self, arm, joint_positions):
         """
