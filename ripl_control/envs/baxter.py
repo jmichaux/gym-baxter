@@ -490,9 +490,9 @@ class Baxter(object):
         """
         action = list(action)
         if blocking:
-            self.set_joint_positions(arm, action)
-        else:
             self.move_to_joint_positions(arm, action)
+        else:
+            self.set_joint_positions(arm, action)
         return
 
     def _apply_ee_control(self, arm, action, blocking=True):
