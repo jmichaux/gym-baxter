@@ -24,8 +24,8 @@ class CONTROL(IntEnum):
 
 class Baxter(object):
     """
-    Baxter interface for doing RL experiments on real and simulated
-    robots.
+    Iinterface for controlling the real and simulated
+    Baxter robot.
     """
     def __init__(self,
                  sim=False,
