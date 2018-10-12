@@ -667,11 +667,6 @@ class Baxter(object):
             raise ValueError("Arg arm must be 'right', 'left', or 'both'.")
         return joint_ranges
 
-    def parse_action_dict(self, action_dict):
-        l_dict = {joint_name: action_dict[joint_name] for joint_name in self.left_arm.joint_names()}
-        r_dict = {joint_name: action_dict[joint_name] for joint_name in self.right_arm.joint_names()}
-        return l_dict, r_dict
-
     def create_action_dict(self, arm, control_type, action):
         """
         Creates an action dictionary
