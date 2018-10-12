@@ -641,6 +641,31 @@ class Baxter(object):
             self.left_arm.move_to_neutral()
         return
 
+    def set_initial_position(self, arm, initial_position=None, random_position=False):
+        """
+        Set initial position
+
+        Args
+            arm (str): 'left' or 'right' or 'both'
+            initial_position (list): List of joint angles
+                len(initial_position) = 7: if arm == 'left' or arm == 'right'
+                len(initial_position) = 14: if arm == 'both'
+            random_position (bool): If true, set an initial positon
+        """
+        if initial_position is None:
+            if random_position:
+                initial_position = self.sample_random_position(arm)
+            else:
+                initial_position = self.config.initial_joint_positions[arm]
+        self.move_to_joint_positions(initial_position)
+        return
+
+    def sample_random_position(self, arm):
+        pass
+
+    def sample_random_pose(self, arm):
+        pass
+
     def euler_to_quat(self, orn):
         # TODO: replace this function
         return p.getQuaternionFromEuler(orn)
