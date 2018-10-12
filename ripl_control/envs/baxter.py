@@ -100,10 +100,7 @@ class Baxter(object):
 
     def _reset_real(self, initial_pose=None):
         self.enable()
-        if initial_pose is None:
-            self.set_ready_position()
-        else:
-            pass
+        self.set_initial_position('both')
         self.calibrate_grippers()
 
     def _reset_sim(self, control_type=None, initial_pose=None):
@@ -632,6 +629,8 @@ class Baxter(object):
 
     def create_action_dict(self, arm, control_type, action):
         """
+        Args
+            arm (str): 'left' or 'right' or 'both'
         Creates an action dictionary
         {joint_name: joint_angle}
         """
@@ -639,7 +638,7 @@ class Baxter(object):
             joint_ranges = self.config.joint_position_ranges[arm]
         if control_type == 'velocity':
             joint_ranges = self.config.joint_velocity_ranges[arm]
-        joint_names = joint_ranges.keys()
+        joint_names = self.config.joint_names[arm]
         action_dict = dict()
         assert len(joint_names) == len(action)
         for i, act in enumerate(action):
@@ -678,7 +677,7 @@ class Baxter(object):
                 initial_position = self.sample_random_position(arm)
             else:
                 initial_position = self.config.initial_joint_positions[arm]
-        self.move_to_joint_positions(arm, initial_position)
+        self.set_joint_positions(arm, initial_position)
         return
 
     def sample_random_position(self, arm):
