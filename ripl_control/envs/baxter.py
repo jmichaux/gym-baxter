@@ -675,17 +675,6 @@ class Baxter(object):
             action_dict[joint_name] = act
         return action_dict
 
-    def set_ready_position(self):
-        """
-        Set ready position for both arms.
-        """
-        if self.sim:
-            pass
-        else:
-            self.right_arm.move_to_neutral()
-            self.left_arm.move_to_neutral()
-        return
-
     def set_initial_position(self, arm, initial_position=None, random_position=False):
         """
         Set initial position
