@@ -97,10 +97,6 @@ class Baxter(object):
             self._reset_sim(initial_pose)
         else:
             self._reset_real(initial_pose)
-        # create joint dictionaries
-        # TODO: WHY DO I DO THIS AGAIN?
-        self.create_joint_dicts(arm="right")
-        self.create_joint_dicts(arm="left")
 
     def _reset_real(self, initial_pose=None):
         self.enable()
@@ -612,29 +608,6 @@ class Baxter(object):
         except (rospy.ServiceException, rospy.ROSException), e:
             # rospy.logerr("Service call failed: %s" % (e,))
             return
-
-    def create_joint_dicts(self, arm):
-        """
-        Creates dictionaries for joint names and ranges
-        """
-        self.joint_dict = self.create_joint_lookup_dict(arm)
-        self.joint_ranges = self.create_joint_range_dict(arm)
-        return
-
-    def create_joint_lookup_dict(self, arm):
-        """"
-        Creates a dictionary that maps ints to joint names
-        {int: joint name}
-        """
-        if arm == "right":
-            joints = self.right_arm.joint_names()
-        elif arm == "left":
-            joints = self.left_arm.joint_names()
-        elif arm == "both":
-            joints = self.left_arm.joint_names() + self.right_arm.joint_names()
-        inds = range(len(joints))
-        joint_dict = dict(zip(inds, joints))
-        return joint_dict
 
     def create_action_dict(self, arm, control_type, action):
         """
