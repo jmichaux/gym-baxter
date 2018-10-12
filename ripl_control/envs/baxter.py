@@ -101,7 +101,8 @@ class Baxter(object):
     def _reset_real(self, initial_pose=None):
         self.enable()
         time.sleep(0.5)
-        self.set_initial_position('both')
+        self.set_initial_position('right')
+        self.set_initial_position('left', blocking=True)
         self.calibrate_grippers()
 
     def _reset_sim(self, control_type=None, initial_pose=None):
@@ -675,7 +676,7 @@ class Baxter(object):
             action_dict[joint_name] = act
         return action_dict
 
-    def set_initial_position(self, arm, initial_position=None, random_position=False):
+    def set_initial_position(self, arm, initial_position=None, random_position=False, blocking=False):
         """
         Set initial position
 
@@ -691,7 +692,10 @@ class Baxter(object):
                 initial_position = self.sample_random_position(arm)
             else:
                 initial_position = self.config.initial_joint_positions[arm]
-        self.set_joint_positions(arm, initial_position)
+        if blocking:
+            self.move_to_joint_positions(arm, initial_position)
+        else:
+            self.set_joint_positions(arm, initial_position)
         return
 
     def sample_random_position(self, arm):
