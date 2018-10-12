@@ -445,25 +445,27 @@ class Baxter(object):
                 else:
                     action_dict = self.create_action_dict(arm, action)
                     self.right_arm.set_joint_positions(action_dict)
-        self.update_state()
         return
 
-    def _apply_ee_control(self, arm, action):
+    def _apply_ee_control(self, arm, action, blocking=True):
         """
         Apply action to move Baxter end effector(s)
 
         Args
+            arm (str): 'left' or 'right' or 'both'
             action (list, tuple, or numpy array)
+            blocking: Bool
         """
         action = list(action)
-        if arm == 'left' or arm == 'right':
-            self.move_to_ee_pose(arm, action)
-        elif arm == 'both':
-            if self.sim:
-                joint_indices = self.left_arm.indices + self.right_arm.indices
-                self.left_arm.move_to_joint_positions(actions, joint_indices)
-            else:
-                pass
+        if self.sim:
+            if arm == 'left' or arm == 'right':
+                self.move_to_ee_pose(arm, action)
+            elif arm == 'both':
+                if self.sim:
+                    joint_indices = self.left_arm.indices + self.right_arm.indices
+                    self.left_arm.move_to_joint_positions(actions, joint_indices)
+        else:
+            self.move_to_ee_pose(arm, action, blocking)
         return
 
     def fk(self, arm, joints):
@@ -679,9 +681,11 @@ class Baxter(object):
             joint_ranges = self.config.joint_position_ranges[arm]
         if control_type == 'velocity':
             joint_ranges = self.config.joint_velocity_ranges[arm]
+        joint_names = joint_ranges.keys()
         action_dict = dict()
+        assert len(joint_names) == len(action)
         for i, act in enumerate(action):
-            joint_name = self.joint_dict[i]
+            joint_name = joint_names[i]
             if act < joint_ranges[joint_name]['min']:
                 act = joint_ranges[joint_name]['min']
             if act > joint_ranges[joint_name]['max']:
