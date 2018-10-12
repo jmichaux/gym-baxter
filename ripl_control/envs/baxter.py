@@ -415,7 +415,7 @@ class Baxter(object):
         Args:
             arm (str): 'right', 'left', or 'both'
             action - list or array of joint angles
-            blocking (bool):
+            blocking (bool): If true, wait for arm(s) to reach final position(s)
         """
         action = list(action)
         if arm == 'both':
