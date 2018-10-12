@@ -16,12 +16,6 @@ from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
 import pybullet as p
 import baxter_pybullet_interface as pybullet_interface
 
-class CONTROL(IntEnum):
-    VELOCITY = 0
-    TORQUE = 1
-    POSITION = 2
-    EE = 3
-
 class Baxter(object):
     """
     Iinterface for controlling the real and simulated
