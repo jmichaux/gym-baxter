@@ -1,16 +1,26 @@
 # Robotics Control Environments
-`ripl-control` provides a common interface for performing reinforcement learning and control experiments on [RIPL](http://www.ttic.edu/ripl/) robots in simulation and on real hardware. `ripl-control` uses PyBullet as the backend for simulation experiments and ROS as the backend for hardware experiments. `ripl-control` also utilizes the [OpenAI Gym](https://gym.openai.com/) paradigm that is common for reinforcement learning environments.
+`gym-robotics` provides an interface for performing reinforcement learning and control experiments on robots in simulation and on real hardware. `gym-robotics` uses PyBullet as the backend for simulation experiments and ROS as the backend for hardware experiments. `gym-robotics` also makes use of the [OpenAI Gym](https://gym.openai.com/) paradigm that is common for reinforcement learning environments.
 
 ## Dependencies
 Python 2.7 \
 PyBullet \
+OpenAI Gym \
 ROS Kinetic \
 Baxter SDK \
-PyKDL
+PyKDL \
 baxter_pykdl
 
-
 ## Install
+To install gym-robotics:
+
+.. code:: shell
+git clone https://github.com/jmichaux/gym-robotics
+cd gym-robotics
+pip install -e .
+
+.. code:: shell
+To install pybullet:
+
 
 ## TODO
 ### Baxter environments
