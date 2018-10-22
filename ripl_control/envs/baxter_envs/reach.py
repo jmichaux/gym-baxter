@@ -2,18 +2,16 @@ import random
 import time
 
 import numpy as np
-import rospy
 
 import gym
 from gym import error, utils, spaces
 from gym.spaces import Box
 from gym.utils import seeding
 
-import pybullet as p
 from ripl_control.envs.baxter import *
 from ripl_control.envs.robot_base_env import RobotBaseEnv
-from ripl_control.envs.config.baxter_config import PyBulletConfig
-from ripl_control.envs.config.baxter_config import ROSConfig
+from ripl_control.envs.config.baxter_reacher_config import PyBulletConfig
+from ripl_control.envs.config.baxter_reacher_config import ROSConfig
 
 
 class REWARD(IntEnum):
@@ -36,6 +34,7 @@ class BaxterReacherEnv(RobotBaseEnv):
         self.random_start = random_start
         if self.sim:
             # TODO: Fix this
+            import pybullet as p
             self._dv = 0.05
             self._action_repeat = 1
             self.config = PyBulletConfig()
@@ -45,6 +44,7 @@ class BaxterReacherEnv(RobotBaseEnv):
             # else:
                 # p.connect(p.DIRECT)
         else:
+            import rospy
             rospy.init_node("reacher_env")
             self._dv = 0.05
             self.config = ROSConfig()
