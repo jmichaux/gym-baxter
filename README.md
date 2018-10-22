@@ -12,15 +12,16 @@ baxter_pykdl
 
 ## Install
 To install gym-robotics:
-
-.. code:: shell
+```
 git clone https://github.com/jmichaux/gym-robotics
 cd gym-robotics
 pip install -e .
+```
 
-.. code:: shell
 To install pybullet:
-
+```
+pip install pybullet
+```
 
 ## TODO
 ### Baxter environments
