@@ -4,13 +4,7 @@ import os
 import time
 import numpy as np
 
-import rospy
-from baxter_pykdl import baxter_kinematics
-import baxter_interface
-from baxter_interface import CHECK_VERSION, Limb, Gripper
-from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
-from std_msgs.msg import Header
-from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
+
 
 # TODO: implement transforms and remove this import
 import pybullet as p
@@ -50,10 +44,18 @@ class Baxter(object):
             }
 
         if self.sim:
-            self.baxter_path = "/home/ripl/ripl-control/ripl_control/envs/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
-            # self.baxter_path = "/assets/baxter_robot/baxter_description/urdf/baxter.urdf"
+            import pybullet as p
+            import baxter_pybullet_interface as pybullet_interface
+            self.baxter_path = "assets/baxter_robot/baxter_description/urdf/baxter.urdf"
             self.time_step = time_step
         else:
+            import rospy
+            from baxter_pykdl import baxter_kinematics
+            import baxter_interface
+            from baxter_interface import CHECK_VERSION, Limb, Gripper
+            from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
+            from std_msgs.msg import Header
+            from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
             self.rate = rate
             self.freq = 1 / rate
             self.missed_cmds = missed_cmds
