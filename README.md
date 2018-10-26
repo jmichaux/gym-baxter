@@ -11,16 +11,16 @@ PyKDL \
 baxter_pykdl
 
 ## Install
+Install the Python dependencies:
+```
+pip install pybullet gym
+```
+
 To install gym-robotics:
 ```
 git clone https://github.com/jmichaux/gym-robotics
 cd gym-robotics
 pip install -e .
-```
-
-To install pybullet:
-```
-pip install pybullet
 ```
 
 To install ROS, follow the directions [here](http://wiki.ros.org/kinetic/Installation). To create a workspace for Baxter, follow the directions [here](http://sdk.rethinkrobotics.com/wiki/Workstation_Setup).
