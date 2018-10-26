@@ -1,5 +1,5 @@
 # Robotics Control Environments
-`gym-robotics` provides an interface for performing reinforcement learning and control experiments on robots in simulation and on real hardware. `gym-robotics` uses PyBullet as the backend for simulation experiments and ROS as the backend for hardware experiments. `gym-robotics` also makes use of the [OpenAI Gym](https://gym.openai.com/) paradigm that is common for reinforcement learning environments.
+`gym-baxter` provides an interface for performing reinforcement learning and control experiments on robots in simulation and on real hardware. `gym-baxter` uses PyBullet as the backend for simulation experiments and ROS as the backend for hardware experiments. `gym-baxter` also makes use of the [OpenAI Gym](https://gym.openai.com/) paradigm that is common for reinforcement learning environments.
 
 ## Dependencies
 Python 2.7 \
@@ -22,6 +22,8 @@ To install pybullet:
 ```
 pip install pybullet
 ```
+
+To install ROS, follow the directions [here](http://wiki.ros.org/kinetic/Installation). To create a workspace for Baxter, follow the directions [here](http://sdk.rethinkrobotics.com/wiki/Workstation_Setup).
 
 ## TODO
 ### Baxter environments
