@@ -15,7 +15,7 @@ from baxter_interface import CHECK_VERSION, Limb, Gripper
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from baxter_core_msgs.srv import SolvePositionIK, SolvePositionIKRequest
-import ripl_control
+import gym_baxter
 import pybullet as p
 
 real_env = gym.make('BaxterReacherEnv-v0')
