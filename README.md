@@ -1,4 +1,4 @@
-# Robotics Control Environments
+# Baxter Control Environments
 `gym-baxter` provides an interface for performing reinforcement learning and control experiments on robots in simulation and on real hardware. `gym-baxter` uses PyBullet as the backend for simulation experiments and ROS as the backend for hardware experiments. `gym-baxter` also makes use of the [OpenAI Gym](https://gym.openai.com/) paradigm that is common for reinforcement learning environments.
 
 ## Dependencies
