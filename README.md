@@ -18,8 +18,8 @@ pip install pybullet gym
 
 To install gym-robotics:
 ```
-git clone https://github.com/jmichaux/gym-robotics
-cd gym-robotics
+git clone https://github.com/jmichaux/gym-baxter
+cd gym-baxter
 pip install -e .
 ```
 
