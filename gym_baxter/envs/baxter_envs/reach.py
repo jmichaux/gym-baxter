@@ -8,10 +8,10 @@ from gym import error, utils, spaces
 from gym.spaces import Box
 from gym.utils import seeding
 
-from ripl_control.envs.baxter import *
-from ripl_control.envs.robot_base_env import RobotBaseEnv
-from ripl_control.envs.config.baxter_reacher_config import PyBulletConfig
-from ripl_control.envs.config.baxter_reacher_config import ROSConfig
+from gym_baxter.envs.baxter import *
+from gym_baxter.envs.robot_base_env import RobotBaseEnv
+from gym_baxter.envs.config.baxter_reacher_config import PyBulletConfig
+from gym_baxter.envs.config.baxter_reacher_config import ROSConfig
 
 
 class REWARD(IntEnum):
