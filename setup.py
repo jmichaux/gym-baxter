@@ -1,6 +1,6 @@
 from setuptools import setup
 
-setup(name='gym_robotics',
+setup(name='gym_baxter',
       version='0.0.1',
       install_requires=['gym']
 )
